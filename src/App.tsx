@@ -1,5 +1,168 @@
 import React, { useMemo, useState } from "react";
 
+// ── Comparison Engine ──────────────────────────────────────────────────────
+// Data layer — maps product numeric IDs to engine string IDs
+const PRODUCT_ID_MAP: Record<number, string> = {
+  1: "brick-facing",
+  2: "cement-m500",
+  3: "drywall",
+  4: "metal-profile",
+  5: "putty-finish",
+  6: "foam-block",
+  7: "insulation",
+  8: "paint-facade",
+};
+
+type Availability = "low" | "medium" | "high";
+
+interface SupplierOffer {
+  id: string;
+  productId: string;
+  supplierName: string;
+  city: string;
+  price: number;
+  deliveryDays: number;
+  availability: Availability;
+  rating: number;
+  lastUpdated: string;
+}
+
+interface RankedOffer {
+  offer: SupplierOffer;
+  score: number;
+  rank: number;
+  isBest: boolean;
+  deliveryLabel: string;
+  availabilityLabel: string;
+  availabilityColor: string;
+  priceVsAvg: number;
+}
+
+interface ComparisonResult {
+  bestOffer: SupplierOffer;
+  allOffers: RankedOffer[];
+  savings: number;
+  savingsPercent: number;
+  cheapestPrice: number;
+  mostExpensivePrice: number;
+  avgPrice: number;
+  fastestDelivery: number;
+  recommendation: string;
+}
+
+// ── All supplier offers (Data Layer) ──────────────────────────────────────
+// Replace fetchOffers() body with API call when ready for production
+const ALL_SUPPLIER_OFFERS: SupplierOffer[] = [
+  // Кирпич облицовочный
+  { id:"o001", productId:"brick-facing", supplierName:"СтройБаза 24", city:"Оренбург", price:11980, deliveryDays:0, availability:"high", rating:4.8, lastUpdated:"2026-03-22T08:00:00Z" },
+  { id:"o002", productId:"brick-facing", supplierName:"МегаСтрой", city:"Оренбург", price:12400, deliveryDays:1, availability:"medium", rating:4.5, lastUpdated:"2026-03-21T14:30:00Z" },
+  { id:"o003", productId:"brick-facing", supplierName:"СтройМаркет", city:"Оренбург", price:13100, deliveryDays:2, availability:"high", rating:4.3, lastUpdated:"2026-03-20T10:00:00Z" },
+  { id:"o004", productId:"brick-facing", supplierName:"КирпичОпт", city:"Оренбург", price:11750, deliveryDays:3, availability:"low", rating:4.1, lastUpdated:"2026-03-19T09:00:00Z" },
+  { id:"o005", productId:"brick-facing", supplierName:"БазаСнаб", city:"Оренбург", price:14200, deliveryDays:1, availability:"high", rating:4.6, lastUpdated:"2026-03-22T07:00:00Z" },
+  // Цемент М500
+  { id:"o006", productId:"cement-m500", supplierName:"ПрофСнаб", city:"Оренбург", price:5400, deliveryDays:1, availability:"high", rating:4.7, lastUpdated:"2026-03-22T09:00:00Z" },
+  { id:"o007", productId:"cement-m500", supplierName:"СтройОптом", city:"Оренбург", price:5800, deliveryDays:0, availability:"medium", rating:4.4, lastUpdated:"2026-03-21T11:00:00Z" },
+  { id:"o008", productId:"cement-m500", supplierName:"БазаСнаб", city:"Оренбург", price:6100, deliveryDays:2, availability:"high", rating:4.2, lastUpdated:"2026-03-20T15:00:00Z" },
+  { id:"o009", productId:"cement-m500", supplierName:"ЦементТорг", city:"Оренбург", price:4950, deliveryDays:4, availability:"low", rating:3.9, lastUpdated:"2026-03-18T08:00:00Z" },
+  // Гипсокартон
+  { id:"o010", productId:"drywall", supplierName:"СнабМаркет", city:"Оренбург", price:8300, deliveryDays:2, availability:"high", rating:4.9, lastUpdated:"2026-03-22T06:00:00Z" },
+  { id:"o011", productId:"drywall", supplierName:"ГипсоТорг", city:"Оренбург", price:8700, deliveryDays:1, availability:"medium", rating:4.5, lastUpdated:"2026-03-21T16:00:00Z" },
+  { id:"o012", productId:"drywall", supplierName:"СтройДом", city:"Оренбург", price:9100, deliveryDays:3, availability:"high", rating:4.2, lastUpdated:"2026-03-20T12:00:00Z" },
+  { id:"o013", productId:"drywall", supplierName:"ЛистМастер", city:"Оренбург", price:7950, deliveryDays:5, availability:"low", rating:4.0, lastUpdated:"2026-03-17T09:00:00Z" },
+  // Профиль металлический
+  { id:"o014", productId:"metal-profile", supplierName:"МеталлТорг", city:"Оренбург", price:3900, deliveryDays:0, availability:"high", rating:4.6, lastUpdated:"2026-03-22T10:00:00Z" },
+  { id:"o015", productId:"metal-profile", supplierName:"ПрофМetal", city:"Оренбург", price:4200, deliveryDays:1, availability:"medium", rating:4.4, lastUpdated:"2026-03-21T13:00:00Z" },
+  { id:"o016", productId:"metal-profile", supplierName:"СтальСнаб", city:"Оренбург", price:4500, deliveryDays:2, availability:"high", rating:4.1, lastUpdated:"2026-03-20T11:00:00Z" },
+  { id:"o017", productId:"metal-profile", supplierName:"МеталлБаза", city:"Оренбург", price:3750, deliveryDays:3, availability:"low", rating:4.0, lastUpdated:"2026-03-19T14:00:00Z" },
+  // Шпаклёвка
+  { id:"o018", productId:"putty-finish", supplierName:"ОтделкаПро", city:"Оренбург", price:4200, deliveryDays:1, availability:"high", rating:4.8, lastUpdated:"2026-03-22T08:30:00Z" },
+  { id:"o019", productId:"putty-finish", supplierName:"ШпакляМастер", city:"Оренбург", price:4600, deliveryDays:0, availability:"medium", rating:4.5, lastUpdated:"2026-03-21T09:00:00Z" },
+  { id:"o020", productId:"putty-finish", supplierName:"РемСнаб", city:"Оренбург", price:4900, deliveryDays:2, availability:"high", rating:4.3, lastUpdated:"2026-03-20T16:00:00Z" },
+  { id:"o021", productId:"putty-finish", supplierName:"СтройОптом", city:"Оренбург", price:3980, deliveryDays:4, availability:"low", rating:3.8, lastUpdated:"2026-03-18T11:00:00Z" },
+  // Пеноблок
+  { id:"o022", productId:"foam-block", supplierName:"БлокСнаб", city:"Оренбург", price:15600, deliveryDays:2, availability:"high", rating:4.7, lastUpdated:"2026-03-22T07:30:00Z" },
+  { id:"o023", productId:"foam-block", supplierName:"ПенобетонТорг", city:"Оренбург", price:16200, deliveryDays:3, availability:"medium", rating:4.4, lastUpdated:"2026-03-21T10:00:00Z" },
+  { id:"o024", productId:"foam-block", supplierName:"СтройБаза М", city:"Оренбург", price:17000, deliveryDays:1, availability:"high", rating:4.3, lastUpdated:"2026-03-20T09:00:00Z" },
+  { id:"o025", productId:"foam-block", supplierName:"БлокОптТорг", city:"Оренбург", price:14900, deliveryDays:5, availability:"low", rating:4.0, lastUpdated:"2026-03-17T14:00:00Z" },
+  // Утеплитель
+  { id:"o026", productId:"insulation", supplierName:"ТеплоСтрой", city:"Оренбург", price:6800, deliveryDays:2, availability:"high", rating:4.5, lastUpdated:"2026-03-22T11:00:00Z" },
+  { id:"o027", productId:"insulation", supplierName:"ИзолТорг", city:"Оренбург", price:7200, deliveryDays:1, availability:"medium", rating:4.3, lastUpdated:"2026-03-21T15:00:00Z" },
+  { id:"o028", productId:"insulation", supplierName:"УтеплМаркет", city:"Оренбург", price:7600, deliveryDays:3, availability:"high", rating:4.1, lastUpdated:"2026-03-20T08:00:00Z" },
+  { id:"o029", productId:"insulation", supplierName:"МинватаОпт", city:"Оренбург", price:6400, deliveryDays:4, availability:"low", rating:3.9, lastUpdated:"2026-03-18T13:00:00Z" },
+  // Краска
+  { id:"o030", productId:"paint-facade", supplierName:"КраскаПро", city:"Оренбург", price:3200, deliveryDays:1, availability:"high", rating:4.6, lastUpdated:"2026-03-22T09:30:00Z" },
+  { id:"o031", productId:"paint-facade", supplierName:"КолорМаркет", city:"Оренбург", price:3500, deliveryDays:0, availability:"medium", rating:4.4, lastUpdated:"2026-03-21T12:00:00Z" },
+  { id:"o032", productId:"paint-facade", supplierName:"СтройКраска", city:"Оренбург", price:3800, deliveryDays:2, availability:"high", rating:4.2, lastUpdated:"2026-03-20T14:00:00Z" },
+  { id:"o033", productId:"paint-facade", supplierName:"ЛКМОпт", city:"Оренбург", price:2950, deliveryDays:5, availability:"low", rating:3.8, lastUpdated:"2026-03-17T10:00:00Z" },
+];
+
+// ── Data Access Layer ──────────────────────────────────────────────────────
+function fetchOffers(productId: string): SupplierOffer[] {
+  // In production: replace with API call
+  // return await api.get(`/offers?productId=${productId}`)
+  return ALL_SUPPLIER_OFFERS.filter(o => o.productId === productId);
+}
+
+// ── Comparison Engine ──────────────────────────────────────────────────────
+const WEIGHTS = { price: 0.55, delivery: 0.30, rating: 0.10, availability: 0.05 };
+
+function scoreOffer(o: SupplierOffer, minP: number, maxP: number, maxD: number): number {
+  const priceScore = (o.price - minP) / (maxP - minP || 1);
+  const deliveryScore = maxD > 0 ? o.deliveryDays / maxD : 0;
+  const ratingScore = 1 - (o.rating - 1) / 4;
+  const availPenalty = o.availability === "high" ? 0 : o.availability === "medium" ? 0.3 : 0.7;
+  return WEIGHTS.price * priceScore + WEIGHTS.delivery * deliveryScore + WEIGHTS.rating * ratingScore + WEIGHTS.availability * availPenalty;
+}
+
+function deliveryLabel(days: number): string {
+  if (days === 0) return "Сегодня";
+  if (days === 1) return "Завтра";
+  return `${days} дня`;
+}
+
+function availLabel(a: string): { label: string; color: string } {
+  if (a === "high") return { label: "В наличии", color: "text-emerald-400" };
+  if (a === "medium") return { label: "Мало", color: "text-yellow-400" };
+  return { label: "Под заказ", color: "text-slate-400" };
+}
+
+function runComparison(offers: SupplierOffer[]): ComparisonResult | null {
+  if (!offers.length) return null;
+  const prices = offers.map(o => o.price);
+  const deliveries = offers.map(o => o.deliveryDays);
+  const minP = Math.min(...prices), maxP = Math.max(...prices);
+  const maxD = Math.max(...deliveries);
+  const avgPrice = Math.round(prices.reduce((a,b) => a+b, 0) / prices.length);
+
+  const scored = offers
+    .map(o => ({ offer: o, score: scoreOffer(o, minP, maxP, maxD) }))
+    .sort((a, b) => a.score - b.score);
+
+  const allOffers: RankedOffer[] = scored.map((s, i) => {
+    const av = availLabel(s.offer.availability);
+    return {
+      offer: s.offer,
+      score: Math.round(s.score * 100) / 100,
+      rank: i + 1,
+      isBest: i === 0,
+      deliveryLabel: deliveryLabel(s.offer.deliveryDays),
+      availabilityLabel: av.label,
+      availabilityColor: av.color,
+      priceVsAvg: s.offer.price - avgPrice,
+    };
+  });
+
+  const savings = maxP - minP;
+  const savingsPercent = Math.round((savings / maxP) * 100);
+  const best = allOffers[0].offer;
+  const savStr = new Intl.NumberFormat("ru-RU").format(savings);
+  const recommendation = savings === 0
+    ? `${best.supplierName} — лучшее предложение.`
+    : `Выбрав ${best.supplierName}, вы сэкономите ${savStr} ₽ (${savingsPercent}%) vs самого дорогого. Доставка: ${deliveryLabel(best.deliveryDays)}.`;
+
+  return { bestOffer: best, allOffers, savings, savingsPercent, cheapestPrice: minP, mostExpensivePrice: maxP, avgPrice, fastestDelivery: Math.min(...deliveries), recommendation };
+}
+
 type Tab = "home" | "catalog" | "estimate" | "favorites" | "cart" | "profile";
 type ProfileSection = "main" | "orders" | "purchases" | "settings" | "history";
 type EstimateTool = "main" | "tile" | "wallpaper" | "paint" | "putty" | "drywall" | "laminate";
@@ -336,10 +499,15 @@ function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggle
   onOpen: (item: Product) => void;
   isFavorite: boolean; onToggleFavorite: (id: number) => void;
 }) {
-  const suppliers = productSuppliers[item.id] || [];
-  const [selectedSupIdx, setSelectedSupIdx] = React.useState(0);
-  const selectedSup = suppliers[selectedSupIdx] || suppliers[0];
-  const best = suppliers[0];
+  // ── REAL COMPARISON ENGINE ─────────────────────────────────────────────
+  const engineProductId = PRODUCT_ID_MAP[item.id];
+  const offers = React.useMemo(() => fetchOffers(engineProductId), [engineProductId]);
+  const comparison = React.useMemo(() => runComparison(offers), [offers]);
+
+  // selectedRank: 0 = best offer (default), user can change
+  const [selectedRank, setSelectedRank] = React.useState(0);
+  const selectedOffer = comparison?.allOffers[selectedRank]?.offer ?? comparison?.bestOffer;
+  // ──────────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
       <TopBarInner title={item.name} onBack={onBack} />
@@ -366,50 +534,99 @@ function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggle
           </div>
         </div>
 
-        {/* Выбранный поставщик — главный блок */}
-        <div className="rounded-[20px] card-bg-raw p-4 mb-3 border border-yellow-400/30">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-semibold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full">
-              {selectedSupIdx === 0 ? "Лучшая цена" : "Выбранный поставщик"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold text-yellow-400">{formatPrice(selectedSup?.price ?? item.price)}</div>
-              {selectedSupIdx === 0 && item.oldPrice && <div className="text-sub text-xs line-through">{formatPrice(item.oldPrice)}</div>}
-              <div className="text-sm text-slate-400 mt-0.5">{selectedSup?.name} · {selectedSup?.delivery}</div>
-            </div>
-            <button onClick={() => {
-              const p = {...item, price: selectedSup?.price ?? item.price, supplier: selectedSup?.name ?? item.supplier};
-              onAdd(p);
-            }} className="rounded-2xl bg-yellow-400 px-5 py-3 font-bold text-black text-sm">В корзину</button>
-          </div>
-        </div>
-
-        {/* Все поставщики */}
-        <div className="mb-3">
-          <div className="text-sm text-slate-400 mb-2 px-1">Все предложения</div>
-          <div className="space-y-2">
-            {suppliers.map((s, i) => (
-              <div key={i} onClick={()=>setSelectedSupIdx(i)}
-                className={`rounded-[16px] card-bg-raw p-4 flex items-center justify-between cursor-pointer transition-all ${selectedSupIdx===i?"border border-yellow-400/50":""}`}>
-                <div className="flex items-center gap-2">
-                  <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedSupIdx===i?"border-yellow-400":"border-slate-600"}`}>
-                    {selectedSupIdx===i && <div className="h-2 w-2 rounded-full bg-yellow-400"/>}
+        {comparison && (
+          <>
+            {/* ── SAVINGS BLOCK — "Вы экономите X ₽" ─────────────────────── */}
+            {comparison.savings > 0 && (
+              <div className="rounded-[16px] bg-emerald-400/10 border border-emerald-400/20 px-4 py-3 mb-3 flex items-center gap-3">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" fill="#34d399" opacity="0.3"/><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" stroke="#34d399" strokeWidth="1.4"/></svg>
+                <div>
+                  <div className="text-emerald-400 text-sm font-bold">
+                    Экономия до {formatPrice(comparison.savings)} ({comparison.savingsPercent}%)
                   </div>
-                  <div>
-                    <div className="text-main text-sm font-semibold">{s.name}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">★ {s.rating} · {s.delivery}</div>
+                  <div className="text-emerald-400/70 text-xs mt-0.5">
+                    vs самого дорогого предложения
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className={`text-base font-bold ${selectedSupIdx===i?"text-yellow-400":"text-main"}`}>{formatPrice(s.price)}</div>
-                  {i===0 && <span className="text-[10px] text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full font-medium">Выгоднее</span>}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            )}
+
+            {/* ── SELECTED OFFER BLOCK ─────────────────────────────────── */}
+            <div className="rounded-[20px] card-bg-raw p-4 mb-3 border border-yellow-400/30">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-semibold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full">
+                  {selectedRank === 0 ? "Лучшее предложение" : "Выбранный поставщик"}
+                </span>
+                {selectedRank === 0 && (
+                  <span className="text-xs text-slate-500">рассчитано автоматически</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-yellow-400">{formatPrice(selectedOffer?.price ?? item.price)}</div>
+                  <div className="text-sm text-slate-400 mt-0.5">
+                    {selectedOffer?.supplierName} · {deliveryLabel(selectedOffer?.deliveryDays ?? 0)}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-slate-500">★ {selectedOffer?.rating}</span>
+                    <span className={`text-xs ${selectedOffer?.availability === "high" ? "text-emerald-400" : selectedOffer?.availability === "medium" ? "text-yellow-400" : "text-slate-400"}`}>
+                      {selectedOffer?.availability === "high" ? "В наличии" : selectedOffer?.availability === "medium" ? "Мало" : "Под заказ"}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => {
+                  const p = {...item, price: selectedOffer?.price ?? item.price, supplier: selectedOffer?.supplierName ?? item.supplier};
+                  onAdd(p);
+                }} className="rounded-2xl bg-yellow-400 px-5 py-3 font-bold text-black text-sm">В корзину</button>
+              </div>
+            </div>
+
+            {/* ── ALL OFFERS — sorted by engine score ──────────────────── */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span className="text-sm text-slate-400">Все предложения ({comparison.allOffers.length})</span>
+                <span className="text-xs text-slate-500">Средняя: {formatPrice(comparison.avgPrice)}</span>
+              </div>
+              <div className="space-y-2">
+                {comparison.allOffers.map((ranked, i) => (
+                  <div key={ranked.offer.id}
+                    onClick={() => setSelectedRank(i)}
+                    className={`rounded-[16px] card-bg-raw p-4 flex items-center justify-between cursor-pointer transition-all ${selectedRank===i?"border border-yellow-400/60":""}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedRank===i?"border-yellow-400":"border-slate-600"}`}>
+                        {selectedRank===i && <div className="h-2 w-2 rounded-full bg-yellow-400"/>}
+                      </div>
+                      <div>
+                        <div className="text-main text-sm font-semibold">{ranked.offer.supplierName}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-slate-500">★ {ranked.offer.rating}</span>
+                          <span className="text-slate-600 text-xs">·</span>
+                          <span className="text-xs text-slate-400">{ranked.deliveryLabel}</span>
+                          <span className="text-slate-600 text-xs">·</span>
+                          <span className={`text-xs ${ranked.availabilityColor}`}>{ranked.availabilityLabel}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className={`text-base font-bold ${selectedRank===i?"text-yellow-400":"text-main"}`}>
+                        {formatPrice(ranked.offer.price)}
+                      </div>
+                      {ranked.isBest && (
+                        <span className="text-[10px] text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full font-medium">Выгоднее</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── RECOMMENDATION ───────────────────────────────────────── */}
+            <div className="rounded-[16px] bg-yellow-400/5 border border-yellow-400/15 px-4 py-3 mb-3">
+              <div className="text-xs text-yellow-400/80 font-semibold mb-1">💡 Рекомендация Strovo</div>
+              <div className="text-xs text-slate-400 leading-relaxed">{comparison.recommendation}</div>
+            </div>
+          </>
+        )}
 
         {/* Характеристики */}
         <div className="rounded-[20px] card-bg-raw p-4 mb-3">
