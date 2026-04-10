@@ -1,7 +1,56 @@
 import React, { useMemo, useState } from "react";
 
-// ── Comparison Engine ──────────────────────────────────────────────────────
-// Data layer — maps product numeric IDs to engine string IDs
+type Availability = "low" | "medium" | "high";
+type Tab = "home" | "catalog" | "estimate" | "favorites" | "cart" | "profile";
+type ProfileSection = "main" | "orders" | "purchases" | "settings" | "history";
+type EstimateTool = "main" | "tile" | "wallpaper" | "paint" | "putty" | "drywall" | "laminate";
+
+type SupplierOffer = {
+  id: string;
+  productId: string;
+  supplierName: string;
+  city: string;
+  price: number;
+  deliveryDays: number;
+  availability: Availability;
+  rating: number;
+  lastUpdated: string;
+};
+
+type ComparisonOffer = {
+  offer: SupplierOffer;
+  score: number;
+  rank: number;
+  isBest: boolean;
+  deliveryLabel: string;
+  availabilityLabel: string;
+  availabilityColor: string;
+  priceVsAvg: number;
+};
+
+type ComparisonResult = {
+  bestOffer: SupplierOffer;
+  allOffers: ComparisonOffer[];
+  savings: number;
+  savingsPercent: number;
+  cheapestPrice: number;
+  mostExpensivePrice: number;
+  avgPrice: number;
+  fastestDelivery: number;
+  recommendation: string;
+};
+
+type Supplier = {
+  name: string;
+  price: number;
+  delivery: string;
+  rating: number;
+  badge?: string;
+};
+
+
+// -- Comparison Engine ------------------------------------------------------
+// Data layer - maps product numeric IDs to engine string IDs
 const PRODUCT_ID_MAP: Record<number, string> = {
   1: "brick-facing",
   2: "cement-m500",
@@ -13,46 +62,13 @@ const PRODUCT_ID_MAP: Record<number, string> = {
   8: "paint-facade",
 };
 
-type Availability = "low" | "medium" | "high";
 
-interface SupplierOffer {
-  id: string;
-  productId: string;
-  supplierName: string;
-  city: string;
-  price: number;
-  deliveryDays: number;
-  availability: Availability;
-  rating: number;
-  lastUpdated: string;
-}
 
-interface RankedOffer {
-  offer: SupplierOffer;
-  score: number;
-  rank: number;
-  isBest: boolean;
-  deliveryLabel: string;
-  availabilityLabel: string;
-  availabilityColor: string;
-  priceVsAvg: number;
-}
 
-interface ComparisonResult {
-  bestOffer: SupplierOffer;
-  allOffers: RankedOffer[];
-  savings: number;
-  savingsPercent: number;
-  cheapestPrice: number;
-  mostExpensivePrice: number;
-  avgPrice: number;
-  fastestDelivery: number;
-  recommendation: string;
-}
 
-// ── All supplier offers (Data Layer) ──────────────────────────────────────
+// -- All supplier offers (Data Layer) --------------------------------------
 // Replace fetchOffers() body with API call when ready for production
-const ALL_SUPPLIER_OFFERS: SupplierOffer[] = [
+const ALL_SUPPLIER_OFFERS = [
   // Кирпич облицовочный
   { id:"o001", productId:"brick-facing", supplierName:"СтройБаза 24", city:"Оренбург", price:11980, deliveryDays:0, availability:"high", rating:4.8, lastUpdated:"2026-03-22T08:00:00Z" },
   { id:"o002", productId:"brick-facing", supplierName:"МегаСтрой", city:"Оренбург", price:12400, deliveryDays:1, availability:"medium", rating:4.5, lastUpdated:"2026-03-21T14:30:00Z" },
@@ -96,17 +112,54 @@ const ALL_SUPPLIER_OFFERS: SupplierOffer[] = [
   { id:"o033", productId:"paint-facade", supplierName:"ЛКМОпт", city:"Оренбург", price:2950, deliveryDays:5, availability:"low", rating:3.8, lastUpdated:"2026-03-17T10:00:00Z" },
 ];
 
-// ── Data Access Layer ──────────────────────────────────────────────────────
-function fetchOffers(productId: string): SupplierOffer[] {
+// -- Data Access Layer ------------------------------------------------------
+function fetchOffers(productId): SupplierOffer[] {
   // In production: replace with API call
   // return await api.get(`/offers?productId=${productId}`)
   return ALL_SUPPLIER_OFFERS.filter(o => o.productId === productId);
 }
 
-// ── Comparison Engine ──────────────────────────────────────────────────────
+// ── Google Sheets Live Data ────────────────────────────────────────────────
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbx8q89PwQIqXuZVQKns8tn1SU62hCfoDKxD4JefihI7HactUaChbFqAkNVQf986Ftw/exec";
+let _sheetsCache = null;
+let _cacheTime = 0;
+
+async function loadSheetsData() {
+  const now = Date.now();
+  if (_sheetsCache && now - _cacheTime < 5 * 60 * 1000) return _sheetsCache;
+  try {
+    const res = await fetch(SHEETS_URL);
+    const data = await res.json();
+    // Normalize offers: parse rating as float, productId as number
+    if (data.offers) {
+      data.offers = data.offers.map(o => ({
+        ...o,
+        productId: Number(o.productId),
+        price: Number(o.price),
+        deliveryDays: Number(o.deliveryDays),
+        rating: typeof o.rating === "string" && o.rating.includes("T") ? 4.5 : Number(o.rating),
+        availability: o.availability || "medium",
+      }));
+    }
+    if (data.products) {
+      data.products = data.products.map(p => ({
+        ...p,
+        id: Number(p.id),
+      }));
+    }
+    _sheetsCache = data;
+    _cacheTime = now;
+    return data;
+  } catch(e) {
+    console.warn("Sheets unavailable, using local data");
+    return null;
+  }
+}
+
+// -- Comparison Engine ------------------------------------------------------
 const WEIGHTS = { price: 0.55, delivery: 0.30, rating: 0.10, availability: 0.05 };
 
-function scoreOffer(o: SupplierOffer, minP: number, maxP: number, maxD: number): number {
+function scoreOffer(o, minP, maxP, maxD): number {
   const priceScore = (o.price - minP) / (maxP - minP || 1);
   const deliveryScore = maxD > 0 ? o.deliveryDays / maxD : 0;
   const ratingScore = 1 - (o.rating - 1) / 4;
@@ -114,19 +167,19 @@ function scoreOffer(o: SupplierOffer, minP: number, maxP: number, maxD: number):
   return WEIGHTS.price * priceScore + WEIGHTS.delivery * deliveryScore + WEIGHTS.rating * ratingScore + WEIGHTS.availability * availPenalty;
 }
 
-function deliveryLabel(days: number): string {
+function deliveryLabel(days): string {
   if (days === 0) return "Сегодня";
   if (days === 1) return "Завтра";
   return `${days} дня`;
 }
 
-function availLabel(a: string): { label: string; color: string } {
+function availLabel(a): { label: string; color: string } {
   if (a === "high") return { label: "В наличии", color: "text-emerald-400" };
   if (a === "medium") return { label: "Мало", color: "text-yellow-400" };
   return { label: "Под заказ", color: "text-slate-400" };
 }
 
-function runComparison(offers: SupplierOffer[]): ComparisonResult | null {
+function runComparison(offers): ComparisonResult | null {
   if (!offers.length) return null;
   const prices = offers.map(o => o.price);
   const deliveries = offers.map(o => o.deliveryDays);
@@ -138,7 +191,7 @@ function runComparison(offers: SupplierOffer[]): ComparisonResult | null {
     .map(o => ({ offer: o, score: scoreOffer(o, minP, maxP, maxD) }))
     .sort((a, b) => a.score - b.score);
 
-  const allOffers: RankedOffer[] = scored.map((s, i) => {
+  const allOffers = scored.map((s, i) => {
     const av = availLabel(s.offer.availability);
     return {
       offer: s.offer,
@@ -157,21 +210,13 @@ function runComparison(offers: SupplierOffer[]): ComparisonResult | null {
   const best = allOffers[0].offer;
   const savStr = new Intl.NumberFormat("ru-RU").format(savings);
   const recommendation = savings === 0
-    ? `${best.supplierName} — лучшее предложение.`
-    : `Выбрав ${best.supplierName}, вы сэкономите ${savStr} ₽ (${savingsPercent}%) vs самого дорогого. Доставка: ${deliveryLabel(best.deliveryDays)}.`;
+    ? `${best.supplierName} - лучшее предложение.`
+    : `Выбрав ${best.supplierName}, вы сэкономите ${savStr}  ₽ (${savingsPercent}%) относительно самого дорогого предложения. Доставка: ${deliveryLabel(best.deliveryDays)}.`;
 
   return { bestOffer: best, allOffers, savings, savingsPercent, cheapestPrice: minP, mostExpensivePrice: maxP, avgPrice, fastestDelivery: Math.min(...deliveries), recommendation };
 }
 
-type Tab = "home" | "catalog" | "estimate" | "favorites" | "cart" | "profile";
-type ProfileSection = "main" | "orders" | "purchases" | "settings" | "history";
-type EstimateTool = "main" | "tile" | "wallpaper" | "paint" | "putty" | "drywall" | "laminate";
-type Product = { id: number; name: string; price: number; oldPrice?: number; discount?: number; unit: string; supplier: string; delivery: string; rating: number; category: string; color: string; img: string };
-type CatalogCategory = { id: number; title: string; icon: React.ReactNode };
-type EstimateCard = { id: number; key: EstimateTool; title: string; subtitle: string; icon: React.ReactNode };
-type CartItem = { product: Product; qty: number };
 
-type Supplier = { name: string; price: number; delivery: string; rating: number; badge?: string };
 
 const productSuppliers: Record<number, Supplier[]> = {
   1: [
@@ -216,53 +261,173 @@ const productSuppliers: Record<number, Supplier[]> = {
   ],
 };
 
-const products: Product[] = [
+const products = [
+  // -- Блоки и кирпич ----------------------------------------------------------
   { id: 1, name: "Кирпич облицовочный", price: 11980, oldPrice: 14500, discount: 17, unit: "200 шт", supplier: "СтройБаза 24", delivery: "Сегодня", rating: 4.8, category: "Блоки и кирпич", color: "from-yellow-400 to-amber-500", img: "https://images.unsplash.com/photo-1564767655658-4e3f5a00d783?w=400&q=80" },
-  { id: 2, name: "Цемент М500", price: 5400, oldPrice: 6200, discount: 13, unit: "10 мешков", supplier: "ПрофСнаб", delivery: "Завтра", rating: 4.7, category: "Сухие смеси", color: "from-slate-300 to-slate-500", img: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80" },
-  { id: 3, name: "Гипсокартон влагостойкий", price: 8300, oldPrice: 9400, discount: 12, unit: "15 листов", supplier: "СнабМаркет", delivery: "2 дня", rating: 4.9, category: "Листовые материалы", color: "from-emerald-300 to-emerald-500", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-  { id: 4, name: "Профиль металлический", price: 3900, oldPrice: 4500, discount: 14, unit: "30 шт", supplier: "МеталлТорг", delivery: "Сегодня", rating: 4.6, category: "Металлопрокат", color: "from-zinc-200 to-zinc-400", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
-  { id: 5, name: "Шпаклёвка финишная", price: 4200, oldPrice: 5100, discount: 18, unit: "8 мешков", supplier: "ОтделкаПро", delivery: "Завтра", rating: 4.8, category: "Сухие смеси", color: "from-orange-300 to-orange-500", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
   { id: 6, name: "Пеноблок стеновой", price: 15600, oldPrice: 18100, discount: 14, unit: "2 поддона", supplier: "БлокСнаб", delivery: "2 дня", rating: 4.7, category: "Блоки и кирпич", color: "from-stone-300 to-stone-500", img: "https://images.unsplash.com/photo-1590593162201-f67611a18b87?w=400&q=80" },
+  { id: 101, name: "Кирпич рядовой полнотелый", price: 8400, oldPrice: 9800, discount: 14, unit: "200 шт", supplier: "КирпичОпт", delivery: "Завтра", rating: 4.5, category: "Блоки и кирпич", color: "from-red-300 to-red-500", img: "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=400&q=80" },
+  { id: 102, name: "Газоблок D400", price: 12800, oldPrice: 14200, discount: 10, unit: "1 поддон", supplier: "ГазоСтрой", delivery: "2 дня", rating: 4.6, category: "Блоки и кирпич", color: "from-gray-200 to-gray-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+  { id: 103, name: "Блок керамзитобетонный", price: 6900, oldPrice: 7800, discount: 12, unit: "40 шт", supplier: "БлокСнаб", delivery: "Сегодня", rating: 4.4, category: "Блоки и кирпич", color: "from-amber-200 to-amber-400", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+
+  // -- Сухие смеси и грунтовки --------------------------------------------------
+  { id: 2, name: "Цемент М500", price: 5400, oldPrice: 6200, discount: 13, unit: "10 мешков", supplier: "ПрофСнаб", delivery: "Завтра", rating: 4.7, category: "Сухие смеси и грунтовки", color: "from-slate-300 to-slate-500", img: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80" },
+  { id: 5, name: "Шпаклёвка финишная", price: 4200, oldPrice: 5100, discount: 18, unit: "8 мешков", supplier: "ОтделкаПро", delivery: "Завтра", rating: 4.8, category: "Сухие смеси и грунтовки", color: "from-orange-300 to-orange-500", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
+  { id: 104, name: "Грунтовка глубокого проникновения", price: 1800, oldPrice: 2200, discount: 18, unit: "10 л", supplier: "ОтделкаПро", delivery: "Сегодня", rating: 4.7, category: "Сухие смеси и грунтовки", color: "from-blue-300 to-blue-500", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
+  { id: 105, name: "Плиточный клей Bergauf", price: 3600, oldPrice: 4100, discount: 12, unit: "5 мешков", supplier: "СтройОптом", delivery: "Завтра", rating: 4.6, category: "Сухие смеси и грунтовки", color: "from-yellow-200 to-yellow-400", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+  { id: 106, name: "Наливной пол самовыравнивающийся", price: 5200, oldPrice: 6000, discount: 13, unit: "6 мешков", supplier: "РемСнаб", delivery: "2 дня", rating: 4.5, category: "Сухие смеси и грунтовки", color: "from-stone-200 to-stone-400", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
+
+  // -- Теплоизоляция -------------------------------------------------------------
   { id: 7, name: "Утеплитель минвата", price: 6800, oldPrice: 7900, discount: 14, unit: "10 плит", supplier: "ТеплоСтрой", delivery: "2 дня", rating: 4.5, category: "Теплоизоляция", color: "from-sky-300 to-sky-500", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
+  { id: 107, name: "Пенополистирол ПСБ-С 25", price: 4500, oldPrice: 5200, discount: 13, unit: "10 плит", supplier: "ИзолТорг", delivery: "Завтра", rating: 4.6, category: "Теплоизоляция", color: "from-white to-gray-200", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
+  { id: 108, name: "Экструдированный пенополистирол", price: 7200, oldPrice: 8400, discount: 14, unit: "8 плит", supplier: "УтеплМаркет", delivery: "2 дня", rating: 4.4, category: "Теплоизоляция", color: "from-orange-200 to-orange-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+  { id: 109, name: "Фольгированный утеплитель", price: 2900, oldPrice: 3400, discount: 15, unit: "1 рулон 50м", supplier: "ТеплоСтрой", delivery: "Сегодня", rating: 4.5, category: "Теплоизоляция", color: "from-yellow-100 to-yellow-300", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
+
+  // -- Листовые материалы --------------------------------------------------------
+  { id: 3, name: "Гипсокартон влагостойкий", price: 8300, oldPrice: 9400, discount: 12, unit: "15 листов", supplier: "СнабМаркет", delivery: "2 дня", rating: 4.9, category: "Листовые материалы", color: "from-emerald-300 to-emerald-500", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+  { id: 110, name: "Фанера ФСФ 18мм", price: 9600, oldPrice: 11000, discount: 13, unit: "10 листов", supplier: "ЛистМастер", delivery: "Завтра", rating: 4.6, category: "Листовые материалы", color: "from-amber-300 to-amber-500", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+  { id: 111, name: "ОСП плита 12мм", price: 7400, oldPrice: 8500, discount: 13, unit: "10 листов", supplier: "СтройДом", delivery: "2 дня", rating: 4.5, category: "Листовые материалы", color: "from-yellow-300 to-yellow-500", img: "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=400&q=80" },
+  { id: 112, name: "ЦСП плита 10мм", price: 11200, oldPrice: 12800, discount: 13, unit: "10 листов", supplier: "СнабМаркет", delivery: "3 дня", rating: 4.4, category: "Листовые материалы", color: "from-gray-300 to-gray-500", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+  { id: 113, name: "Гипсокартон обычный 12.5мм", price: 6100, oldPrice: 7000, discount: 13, unit: "15 листов", supplier: "ГипсоТорг", delivery: "Сегодня", rating: 4.7, category: "Листовые материалы", color: "from-slate-200 to-slate-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+
+  // -- Металлопрокат -------------------------------------------------------------
+  { id: 4, name: "Профиль металлический", price: 3900, oldPrice: 4500, discount: 14, unit: "30 шт", supplier: "МеталлТорг", delivery: "Сегодня", rating: 4.6, category: "Металлопрокат", color: "from-zinc-200 to-zinc-400", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
+  { id: 114, name: "Арматура А500С 12мм", price: 18500, oldPrice: 21000, discount: 12, unit: "1 тонна", supplier: "СтальСнаб", delivery: "2 дня", rating: 4.7, category: "Металлопрокат", color: "from-zinc-400 to-zinc-600", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
+  { id: 115, name: "Труба профильная 40х40", price: 8900, oldPrice: 10200, discount: 13, unit: "50 м.п.", supplier: "МеталлБаза", delivery: "Завтра", rating: 4.5, category: "Металлопрокат", color: "from-gray-400 to-gray-600", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
+  { id: 116, name: "Уголок стальной 50х50мм", price: 6400, oldPrice: 7300, discount: 12, unit: "50 м.п.", supplier: "МеталлТорг", delivery: "Сегодня", rating: 4.6, category: "Металлопрокат", color: "from-slate-400 to-slate-600", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
+  { id: 117, name: "Сетка сварная 100х100мм", price: 4200, oldPrice: 4900, discount: 14, unit: "10 карт", supplier: "ПрофМetal", delivery: "2 дня", rating: 4.4, category: "Металлопрокат", color: "from-zinc-300 to-zinc-500", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
+
+  // -- Кровля --------------------------------------------------------------------
+  { id: 118, name: "Профнастил С8 оцинкованный", price: 14200, oldPrice: 16500, discount: 14, unit: "10 листов", supplier: "КровляМастер", delivery: "2 дня", rating: 4.7, category: "Кровля", color: "from-gray-300 to-gray-500", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+  { id: 119, name: "Металлочерепица Монтеррей", price: 28500, oldPrice: 33000, discount: 14, unit: "10 листов", supplier: "КровляПро", delivery: "3 дня", rating: 4.8, category: "Кровля", color: "from-red-400 to-red-600", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+  { id: 120, name: "Ондулин коричневый", price: 9800, oldPrice: 11200, discount: 13, unit: "10 листов", supplier: "СтройМаркет", delivery: "Завтра", rating: 4.5, category: "Кровля", color: "from-amber-600 to-amber-800", img: "https://images.unsplash.com/photo-1590593162201-f67611a18b87?w=400&q=80" },
+  { id: 121, name: "Битумная черепица Shinglas", price: 21000, oldPrice: 24500, discount: 14, unit: "10 уп.", supplier: "КровляМастер", delivery: "3 дня", rating: 4.6, category: "Кровля", color: "from-stone-500 to-stone-700", img: "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=400&q=80" },
+
+  // -- Фасадные материалы --------------------------------------------------------
+  { id: 122, name: "Сайдинг виниловый белый", price: 12400, oldPrice: 14200, discount: 13, unit: "20 панелей", supplier: "ФасадПро", delivery: "2 дня", rating: 4.6, category: "Фасадные материалы", color: "from-slate-100 to-slate-300", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+  { id: 123, name: "Фасадная панель под кирпич", price: 18600, oldPrice: 21500, discount: 13, unit: "10 листов", supplier: "СтройДом", delivery: "3 дня", rating: 4.5, category: "Фасадные материалы", color: "from-red-200 to-red-400", img: "https://images.unsplash.com/photo-1564767655658-4e3f5a00d783?w=400&q=80" },
+  { id: 124, name: "Штукатурка декоративная Короед", price: 4800, oldPrice: 5600, discount: 14, unit: "5 мешков", supplier: "ОтделкаПро", delivery: "Завтра", rating: 4.7, category: "Фасадные материалы", color: "from-amber-100 to-amber-300", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
+  { id: 125, name: "Керамогранит фасадный", price: 22000, oldPrice: 25500, discount: 14, unit: "10 кв.м", supplier: "КаменьСтрой", delivery: "4 дня", rating: 4.8, category: "Фасадные материалы", color: "from-stone-300 to-stone-500", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+
+  // -- Профиль и комплектующие ---------------------------------------------------
+  { id: 126, name: "Профиль ПП 60х27мм", price: 2800, oldPrice: 3200, discount: 13, unit: "50 шт", supplier: "МеталлТорг", delivery: "Сегодня", rating: 4.6, category: "Профиль и комплектующие", color: "from-zinc-200 to-zinc-400", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
+  { id: 127, name: "Профиль ПН 28х27мм", price: 2100, oldPrice: 2400, discount: 13, unit: "50 шт", supplier: "ПрофМetal", delivery: "Сегодня", rating: 4.5, category: "Профиль и комплектующие", color: "from-gray-200 to-gray-400", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
+  { id: 128, name: "Подвес прямой для профиля", price: 890, oldPrice: 1100, discount: 19, unit: "100 шт", supplier: "СнабМаркет", delivery: "Завтра", rating: 4.4, category: "Профиль и комплектующие", color: "from-slate-300 to-slate-500", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
+  { id: 129, name: "Дюбель-гвоздь 6х40мм", price: 650, oldPrice: 780, discount: 17, unit: "200 шт", supplier: "СтройРасход", delivery: "Сегодня", rating: 4.5, category: "Профиль и комплектующие", color: "from-yellow-200 to-yellow-400", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+
+  // -- Строительные расходники ---------------------------------------------------
+  { id: 130, name: "Саморезы по металлу 3.5х25", price: 480, oldPrice: 580, discount: 17, unit: "1000 шт", supplier: "СтройРасход", delivery: "Сегодня", rating: 4.6, category: "Строительные расходники", color: "from-gray-300 to-gray-500", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+  { id: 131, name: "Монтажная пена 65л Makroflex", price: 890, oldPrice: 1050, discount: 15, unit: "12 шт", supplier: "РемСнаб", delivery: "Завтра", rating: 4.7, category: "Строительные расходники", color: "from-yellow-300 to-yellow-500", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
+  { id: 132, name: "Лента малярная 25мм", price: 320, oldPrice: 390, discount: 18, unit: "20 рулонов", supplier: "СтройОптом", delivery: "Сегодня", rating: 4.5, category: "Строительные расходники", color: "from-blue-200 to-blue-400", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
+  { id: 133, name: "Перфорированный уголок 3м", price: 1200, oldPrice: 1400, discount: 14, unit: "50 шт", supplier: "МеталлТорг", delivery: "Завтра", rating: 4.4, category: "Строительные расходники", color: "from-zinc-200 to-zinc-400", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
+  { id: 134, name: "Сетка штукатурная фасадная", price: 2100, oldPrice: 2500, discount: 16, unit: "5 рулонов", supplier: "ОтделкаПро", delivery: "2 дня", rating: 4.5, category: "Строительные расходники", color: "from-green-200 to-green-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+
+  // -- Шумоизоляция --------------------------------------------------------------
+  { id: 135, name: "Шумоизоляция Rockwool Акустик", price: 8900, oldPrice: 10200, discount: 13, unit: "6 плит", supplier: "ТеплоСтрой", delivery: "2 дня", rating: 4.7, category: "Шумоизоляция", color: "from-blue-300 to-blue-500", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
+  { id: 136, name: "Подложка под ламинат 3мм", price: 1800, oldPrice: 2100, discount: 14, unit: "10 рулонов", supplier: "УтеплМаркет", delivery: "Завтра", rating: 4.5, category: "Шумоизоляция", color: "from-gray-200 to-gray-400", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
+  { id: 137, name: "Виброизоляция СТК 4мм", price: 4200, oldPrice: 4900, discount: 14, unit: "5 листов", supplier: "ИзолТорг", delivery: "3 дня", rating: 4.4, category: "Шумоизоляция", color: "from-slate-400 to-slate-600", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+  { id: 138, name: "Звукоизоляция Шуманет-100", price: 6400, oldPrice: 7400, discount: 14, unit: "4 рулона", supplier: "МинватаОпт", delivery: "2 дня", rating: 4.6, category: "Шумоизоляция", color: "from-indigo-300 to-indigo-500", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
+
+  // -- Гидроизоляция -------------------------------------------------------------
+  { id: 139, name: "Гидроизоляция Технониколь", price: 5600, oldPrice: 6500, discount: 14, unit: "10 кв.м", supplier: "ГидроСтрой", delivery: "Завтра", rating: 4.7, category: "Гидроизоляция", color: "from-blue-400 to-blue-600", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
+  { id: 140, name: "Мастика битумная 20кг", price: 3200, oldPrice: 3700, discount: 14, unit: "4 ведра", supplier: "КровляМастер", delivery: "Сегодня", rating: 4.5, category: "Гидроизоляция", color: "from-gray-600 to-gray-800", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
+  { id: 141, name: "Пленка гидробарьер 70гр", price: 4100, oldPrice: 4800, discount: 15, unit: "2 рулона 75м", supplier: "ФасадПро", delivery: "2 дня", rating: 4.4, category: "Гидроизоляция", color: "from-sky-300 to-sky-500", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
+  { id: 142, name: "Проникающая гидроизоляция Пенетрон", price: 7800, oldPrice: 9000, discount: 13, unit: "5 кг", supplier: "РемСнаб", delivery: "3 дня", rating: 4.8, category: "Гидроизоляция", color: "from-cyan-300 to-cyan-500", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
+
+  // -- Товары оптом --------------------------------------------------------------
+  { id: 143, name: "Цемент М400 оптом", price: 42000, oldPrice: 49000, discount: 14, unit: "100 мешков", supplier: "ЦементТорг", delivery: "2 дня", rating: 4.6, category: "Товары оптом", color: "from-slate-300 to-slate-500", img: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80" },
+  { id: 144, name: "Кирпич оптом от 1000 шт", price: 58000, oldPrice: 68000, discount: 15, unit: "1000 шт", supplier: "КирпичОпт", delivery: "3 дня", rating: 4.7, category: "Товары оптом", color: "from-red-300 to-red-500", img: "https://images.unsplash.com/photo-1564767655658-4e3f5a00d783?w=400&q=80" },
+  { id: 145, name: "Арматура оптом А500С", price: 85000, oldPrice: 98000, discount: 13, unit: "5 тонн", supplier: "СтальСнаб", delivery: "4 дня", rating: 4.5, category: "Товары оптом", color: "from-zinc-400 to-zinc-600", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
+  { id: 146, name: "Пеноблок оптом D400", price: 64000, oldPrice: 75000, discount: 15, unit: "10 поддонов", supplier: "БлокОптТорг", delivery: "3 дня", rating: 4.6, category: "Товары оптом", color: "from-gray-200 to-gray-400", img: "https://images.unsplash.com/photo-1590593162201-f67611a18b87?w=400&q=80" },
+
+  // -- Плитка и керамогранит -----------------------------------------------------
+  { id: 147, name: "Керамогранит серый 60х60", price: 18500, oldPrice: 21500, discount: 14, unit: "10 кв.м", supplier: "КаменьСтрой", delivery: "3 дня", rating: 4.8, category: "Плитка и керамогранит", color: "from-gray-300 to-gray-500", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+  { id: 148, name: "Плитка настенная белая 30х60", price: 9200, oldPrice: 10800, discount: 15, unit: "10 кв.м", supplier: "СтройДом", delivery: "2 дня", rating: 4.6, category: "Плитка и керамогранит", color: "from-slate-100 to-slate-300", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+  { id: 149, name: "Мозаика стеклянная 30х30", price: 14800, oldPrice: 17200, discount: 14, unit: "5 кв.м", supplier: "КаменьСтрой", delivery: "4 дня", rating: 4.7, category: "Плитка и керамогранит", color: "from-blue-200 to-blue-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+  { id: 150, name: "Затирка Ceresit CE 33", price: 1200, oldPrice: 1450, discount: 17, unit: "10 упаковок", supplier: "РемСнаб", delivery: "Сегодня", rating: 4.5, category: "Плитка и керамогранит", color: "from-amber-200 to-amber-400", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
+
+  // -- Обои и декор стен ---------------------------------------------------------
+  { id: 151, name: "Обои флизелиновые под покраску", price: 4800, oldPrice: 5600, discount: 14, unit: "6 рулонов", supplier: "ДекорСтрой", delivery: "Завтра", rating: 4.6, category: "Обои и декор стен", color: "from-amber-100 to-amber-300", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
+  { id: 152, name: "Декоративная штукатурка Венецианка", price: 8900, oldPrice: 10400, discount: 14, unit: "5 кг", supplier: "ОтделкаПро", delivery: "2 дня", rating: 4.7, category: "Обои и декор стен", color: "from-yellow-200 to-yellow-400", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
+  { id: 153, name: "3D панели для стен", price: 6200, oldPrice: 7200, discount: 14, unit: "10 листов", supplier: "ДекорСтрой", delivery: "3 дня", rating: 4.5, category: "Обои и декор стен", color: "from-stone-200 to-stone-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+  { id: 154, name: "Плинтус потолочный 2м", price: 980, oldPrice: 1200, discount: 18, unit: "20 шт", supplier: "СтройОптом", delivery: "Сегодня", rating: 4.4, category: "Обои и декор стен", color: "from-white to-gray-200", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+
+  // -- Лакокрасочные материалы ---------------------------------------------------
   { id: 8, name: "Краска фасадная белая", price: 3200, oldPrice: 3800, discount: 16, unit: "10 л", supplier: "КраскаПро", delivery: "Завтра", rating: 4.6, category: "Лакокрасочные материалы", color: "from-blue-200 to-blue-400", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
+  { id: 155, name: "Краска интерьерная моющаяся", price: 2800, oldPrice: 3300, discount: 15, unit: "10 л", supplier: "КолорМаркет", delivery: "Сегодня", rating: 4.7, category: "Лакокрасочные материалы", color: "from-blue-100 to-blue-300", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
+  { id: 156, name: "Эмаль ПФ-115 белая", price: 1900, oldPrice: 2300, discount: 17, unit: "5 л", supplier: "СтройКраска", delivery: "Завтра", rating: 4.5, category: "Лакокрасочные материалы", color: "from-gray-100 to-gray-300", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
+  { id: 157, name: "Лак паркетный глянцевый", price: 3600, oldPrice: 4200, discount: 14, unit: "5 л", supplier: "ЛКМОпт", delivery: "2 дня", rating: 4.6, category: "Лакокрасочные материалы", color: "from-amber-300 to-amber-500", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
+
+  // -- Электрика -----------------------------------------------------------------
+  { id: 158, name: "Кабель ВВГнг 3х2.5мм", price: 8900, oldPrice: 10400, discount: 14, unit: "100 м", supplier: "ЭлектроСнаб", delivery: "Завтра", rating: 4.7, category: "Электрика", color: "from-yellow-400 to-yellow-600", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
+  { id: 159, name: "Розетка двойная встраиваемая", price: 1200, oldPrice: 1450, discount: 17, unit: "10 шт", supplier: "ЭлектроМаркет", delivery: "Сегодня", rating: 4.6, category: "Электрика", color: "from-slate-200 to-slate-400", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
+  { id: 160, name: "Автоматический выключатель 25А", price: 890, oldPrice: 1100, discount: 19, unit: "10 шт", supplier: "ЭлектроСнаб", delivery: "Завтра", rating: 4.8, category: "Электрика", color: "from-gray-300 to-gray-500", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
+  { id: 161, name: "Гофротруба ПВХ 20мм", price: 1600, oldPrice: 1900, discount: 16, unit: "50 м", supplier: "ЭлектроМаркет", delivery: "Сегодня", rating: 4.5, category: "Электрика", color: "from-orange-300 to-orange-500", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
+
+
 ];
 
-const catalogCategories: CatalogCategory[] = [
-  { id: 1, title: "Листовые материалы", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="14" rx="2" stroke="#FACC15" strokeWidth="1.6"/><path d="M3 9h18M3 13h18" stroke="#FACC15" strokeWidth="1.2"/></svg> },
-  { id: 2, title: "Сухие смеси и грунтовки", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M7 20V8l5-5 5 5v12H7z" stroke="#FACC15" strokeWidth="1.6" strokeLinejoin="round"/><path d="M10 20v-6h4v6" stroke="#FACC15" strokeWidth="1.4"/></svg> },
-  { id: 3, title: "Теплоизоляция", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="6" width="18" height="12" rx="3" stroke="#FACC15" strokeWidth="1.6"/><path d="M3 12h18" stroke="#FACC15" strokeWidth="1.2" strokeDasharray="3 2"/></svg> },
-  { id: 4, title: "Блоки и кирпич", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="2" y="5" width="9" height="5" rx="1" stroke="#FACC15" strokeWidth="1.5"/><rect x="13" y="5" width="9" height="5" rx="1" stroke="#FACC15" strokeWidth="1.5"/><rect x="6" y="13" width="12" height="5" rx="1" stroke="#FACC15" strokeWidth="1.5"/></svg> },
-  { id: 5, title: "Металлопрокат", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M4 8h16M4 12h16M4 16h16" stroke="#FACC15" strokeWidth="1.8" strokeLinecap="round"/></svg> },
-  { id: 6, title: "Кровля", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M3 13L12 4l9 9" stroke="#FACC15" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/><rect x="8" y="13" width="8" height="8" rx="1" stroke="#FACC15" strokeWidth="1.5"/></svg> },
-  { id: 7, title: "Фасадные материалы", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#FACC15" strokeWidth="1.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke="#FACC15" strokeWidth="1.1"/></svg> },
-  { id: 8, title: "Профиль и комплектующие", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M4 6h16M4 12h16M4 18h10" stroke="#FACC15" strokeWidth="1.8" strokeLinecap="round"/></svg> },
-  { id: 9, title: "Строительные расходники", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M14.5 3L21 9.5 9.5 21l-7-7L14.5 3z" stroke="#FACC15" strokeWidth="1.5" strokeLinejoin="round"/></svg> },
-  { id: 10, title: "Шумоизоляция", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M9 9H5a1 1 0 00-1 1v4a1 1 0 001 1h4l6 5V4L9 9z" stroke="#FACC15" strokeWidth="1.6" strokeLinejoin="round"/><path d="M17 9a4 4 0 010 6" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/></svg> },
-  { id: 11, title: "Гидроизоляция", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M12 3C12 3 5 10 5 15a7 7 0 0014 0c0-5-7-12-7-12z" stroke="#FACC15" strokeWidth="1.6" strokeLinejoin="round"/></svg> },
-  { id: 12, title: "Товары оптом", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="10" width="18" height="11" rx="1.5" stroke="#FACC15" strokeWidth="1.5"/><path d="M8 10V7a4 4 0 018 0v3" stroke="#FACC15" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-  { id: 13, title: "Плитка и керамогранит", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/></svg> },
-  { id: 14, title: "Обои и декор стен", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#FACC15" strokeWidth="1.5"/><path d="M3 9c3-2 6 2 9 0s6-2 9 0M3 15c3-2 6 2 9 0s6-2 9 0" stroke="#FACC15" strokeWidth="1.3" strokeLinecap="round"/></svg> },
-  { id: 15, title: "Лакокрасочные материалы", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M8 3h8l1 9H7L8 3z" stroke="#FACC15" strokeWidth="1.5" strokeLinejoin="round"/><rect x="6" y="12" width="12" height="3" rx="1" stroke="#FACC15" strokeWidth="1.3"/><path d="M10 15v4a2 2 0 004 0v-4" stroke="#FACC15" strokeWidth="1.4"/></svg> },
-  { id: 16, title: "Электрика", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M13 3L4 14h8l-1 7 9-11h-8l1-7z" stroke="#FACC15" strokeWidth="1.6" strokeLinejoin="round"/></svg> },
-  { id: 17, title: "Сантехника", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M4 12h10a4 4 0 010 8H4" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/><circle cx="7" cy="7" r="4" stroke="#FACC15" strokeWidth="1.5"/></svg> },
-  { id: 18, title: "Инструменты", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3-3a6 6 0 01-7 7l-7 7a2 2 0 01-3-3l7-7a6 6 0 017-7l-3 3z" stroke="#FACC15" strokeWidth="1.5" strokeLinejoin="round"/></svg> },
+const CAT_ICONS = {
+  1: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="14" rx="2" stroke="#FACC15" strokeWidth="1.6"/><path d="M3 9h18M3 13h18" stroke="#FACC15" strokeWidth="1.2"/></svg>,
+  2: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M7 20V8l5-5 5 5v12H7z" stroke="#FACC15" strokeWidth="1.6" strokeLinejoin="round"/><path d="M10 20v-6h4v6" stroke="#FACC15" strokeWidth="1.4"/></svg>,
+  3: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="6" width="18" height="12" rx="3" stroke="#FACC15" strokeWidth="1.6"/><path d="M3 12h18" stroke="#FACC15" strokeWidth="1.2" strokeDasharray="3 2"/></svg>,
+  4: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="2" y="5" width="9" height="5" rx="1" stroke="#FACC15" strokeWidth="1.5"/><rect x="13" y="5" width="9" height="5" rx="1" stroke="#FACC15" strokeWidth="1.5"/><rect x="6" y="13" width="12" height="5" rx="1" stroke="#FACC15" strokeWidth="1.5"/></svg>,
+  5: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M4 8h16M4 12h16M4 16h16" stroke="#FACC15" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  6: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M3 13L12 4l9 9" stroke="#FACC15" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/><rect x="8" y="13" width="8" height="8" rx="1" stroke="#FACC15" strokeWidth="1.5"/></svg>,
+  7: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#FACC15" strokeWidth="1.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke="#FACC15" strokeWidth="1.1"/></svg>,
+  8: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M4 6h16M4 12h16M4 18h10" stroke="#FACC15" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  9: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M14.5 3L21 9.5 9.5 21l-7-7L14.5 3z" stroke="#FACC15" strokeWidth="1.5" strokeLinejoin="round"/></svg>,
+  10: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M9 9H5a1 1 0 00-1 1v4a1 1 0 001 1h4l6 5V4L9 9z" stroke="#FACC15" strokeWidth="1.6" strokeLinejoin="round"/><path d="M17 9a4 4 0 010 6" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/></svg>,
+  11: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M12 3C12 3 5 10 5 15a7 7 0 0014 0c0-5-7-12-7-12z" stroke="#FACC15" strokeWidth="1.6" strokeLinejoin="round"/></svg>,
+  12: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="10" width="18" height="11" rx="1.5" stroke="#FACC15" strokeWidth="1.5"/><path d="M8 10V7a4 4 0 018 0v3" stroke="#FACC15" strokeWidth="1.5" strokeLinecap="round"/></svg>,
+  13: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/></svg>,
+  14: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#FACC15" strokeWidth="1.5"/><path d="M3 9c3-2 6 2 9 0s6-2 9 0M3 15c3-2 6 2 9 0s6-2 9 0" stroke="#FACC15" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  15: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M8 3h8l1 9H7L8 3z" stroke="#FACC15" strokeWidth="1.5" strokeLinejoin="round"/><rect x="6" y="12" width="12" height="3" rx="1" stroke="#FACC15" strokeWidth="1.3"/><path d="M10 15v4a2 2 0 004 0v-4" stroke="#FACC15" strokeWidth="1.4"/></svg>,
+  16: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M13 3L4 14h8l-1 7 9-11h-8l1-7z" stroke="#FACC15" strokeWidth="1.6" strokeLinejoin="round"/></svg>,
+};
+
+const catalogCategories = [
+  { id: 1, title: "Листовые материалы" },
+  { id: 2, title: "Сухие смеси и грунтовки" },
+  { id: 3, title: "Теплоизоляция" },
+  { id: 4, title: "Блоки и кирпич" },
+  { id: 5, title: "Металлопрокат" },
+  { id: 6, title: "Кровля" },
+  { id: 7, title: "Фасадные материалы" },
+  { id: 8, title: "Профиль и комплектующие" },
+  { id: 9, title: "Строительные расходники" },
+  { id: 10, title: "Шумоизоляция" },
+  { id: 11, title: "Гидроизоляция" },
+  { id: 12, title: "Товары оптом" },
+  { id: 13, title: "Плитка и керамогранит" },
+  { id: 14, title: "Обои и декор стен" },
+  { id: 15, title: "Лакокрасочные материалы" },
+  { id: 16, title: "Электрика" },
 ];
 
-const estimateCards: EstimateCard[] = [
-  { id: 1, key: "tile", title: "Расчёт плитки", subtitle: "Пол и стены", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/></svg> },
-  { id: 2, key: "wallpaper", title: "Расчёт обоев", subtitle: "Комнаты и стены", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#FACC15" strokeWidth="1.5"/><path d="M3 9c3-2 6 2 9 0s6-2 9 0M3 15c3-2 6 2 9 0s6-2 9 0" stroke="#FACC15" strokeWidth="1.3" strokeLinecap="round"/></svg> },
-  { id: 3, key: "paint", title: "Расчёт краски", subtitle: "Расход по площади", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M8 3h8l1 9H7L8 3z" stroke="#FACC15" strokeWidth="1.5" strokeLinejoin="round"/><rect x="6" y="12" width="12" height="3" rx="1" stroke="#FACC15" strokeWidth="1.3"/><path d="M10 15v4a2 2 0 004 0v-4" stroke="#FACC15" strokeWidth="1.4"/></svg> },
-  { id: 4, key: "putty", title: "Расчёт шпаклёвки", subtitle: "Черновая отделка", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="14" rx="2" stroke="#FACC15" strokeWidth="1.5"/><path d="M3 10h18" stroke="#FACC15" strokeWidth="1.3"/><path d="M8 17v4M16 17v4" stroke="#FACC15" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-  { id: 5, key: "drywall", title: "Расчёт гипсокартона", subtitle: "Листы и профиль", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="18" rx="1.5" stroke="#FACC15" strokeWidth="1.5"/><path d="M3 12h18M12 3v18" stroke="#FACC15" strokeWidth="1.2" strokeDasharray="3 2"/></svg> },
-  { id: 6, key: "laminate", title: "Расчёт ламината", subtitle: "Пол + запас", icon: <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="5" width="18" height="4" rx="1" stroke="#FACC15" strokeWidth="1.4"/><rect x="3" y="11" width="18" height="4" rx="1" stroke="#FACC15" strokeWidth="1.4"/><rect x="3" y="17" width="18" height="4" rx="1" stroke="#FACC15" strokeWidth="1.4"/></svg> },
+const EST_ICONS = {
+  tile: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.2" stroke="#FACC15" strokeWidth="1.5"/></svg>,
+  wallpaper: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#FACC15" strokeWidth="1.5"/><path d="M3 9c3-2 6 2 9 0s6-2 9 0M3 15c3-2 6 2 9 0s6-2 9 0" stroke="#FACC15" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+  paint: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><path d="M8 3h8l1 9H7L8 3z" stroke="#FACC15" strokeWidth="1.5" strokeLinejoin="round"/><rect x="6" y="12" width="12" height="3" rx="1" stroke="#FACC15" strokeWidth="1.3"/><path d="M10 15v4a2 2 0 004 0v-4" stroke="#FACC15" strokeWidth="1.4"/></svg>,
+  putty: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="14" rx="2" stroke="#FACC15" strokeWidth="1.5"/><path d="M3 10h18" stroke="#FACC15" strokeWidth="1.3"/><path d="M8 17v4M16 17v4" stroke="#FACC15" strokeWidth="1.5" strokeLinecap="round"/></svg>,
+  drywall: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="18" rx="1.5" stroke="#FACC15" strokeWidth="1.5"/><path d="M3 12h18M12 3v18" stroke="#FACC15" strokeWidth="1.2" strokeDasharray="3 2"/></svg>,
+  laminate: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="5" width="18" height="4" rx="1" stroke="#FACC15" strokeWidth="1.4"/><rect x="3" y="11" width="18" height="4" rx="1" stroke="#FACC15" strokeWidth="1.4"/><rect x="3" y="17" width="18" height="4" rx="1" stroke="#FACC15" strokeWidth="1.4"/></svg>,
+};
+
+const estimateCards = [
+  { id: 1, key: "tile", title: "Расчёт плитки", subtitle: "Пол и стены" },
+  { id: 2, key: "wallpaper", title: "Расчёт обоев", subtitle: "Комнаты и стены" },
+  { id: 3, key: "paint", title: "Расчёт краски", subtitle: "Расход по площади" },
+  { id: 4, key: "putty", title: "Расчёт шпаклёвки", subtitle: "Черновая отделка" },
+  { id: 5, key: "drywall", title: "Расчёт гипсокартона", subtitle: "Листы и профиль" },
+  { id: 6, key: "laminate", title: "Расчёт ламината", subtitle: "Пол + запас" },
 ];
 
 const cities = ["Москва","Санкт-Петербург","Оренбург","Екатеринбург","Новосибирск","Казань","Краснодар","Уфа","Челябинск","Самара"];
 
-function formatPrice(v: number) { return new Intl.NumberFormat("ru-RU").format(v) + " ₽"; }
+function formatPrice(v) { return new Intl.NumberFormat("ru-RU").format(v) + " ₽"; }
 
-// ── Логотип ───────────────────────────────────────────────────────────────────
-function StrovoLogo({ size = 36 }: { size?: number }) {
+// -- Логотип -------------------------------------------------------------------
+function StrovoLogo({ size = 36 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
       <defs>
@@ -287,14 +452,14 @@ function StrovoLogo({ size = 36 }: { size?: number }) {
   );
 }
 
-// ── Nav Icons ─────────────────────────────────────────────────────────────────
-const NavHomeIcon = ({ active }: { active: boolean }) => (
+// -- Nav Icons -----------------------------------------------------------------
+const NavHomeIcon = ({ active }) => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
     <path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" fill={active ? "#FACC15" : "#9ca3af"} />
     <rect x="7" y="12" width="6" height="6" rx="1" fill={active ? "#a16207" : "#e5e7eb"} />
   </svg>
 );
-const NavCatalogIcon = ({ active }: { active: boolean }) => (
+const NavCatalogIcon = ({ active }) => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
     <rect x="3" y="3" width="6" height="6" rx="1.5" fill={active ? "#FACC15" : "#64748b"} />
     <rect x="11" y="3" width="6" height="6" rx="1.5" fill={active ? "#FACC15" : "#64748b"} />
@@ -302,44 +467,48 @@ const NavCatalogIcon = ({ active }: { active: boolean }) => (
     <rect x="11" y="11" width="6" height="6" rx="1.5" fill={active ? "#FACC15" : "#64748b"} />
   </svg>
 );
-const NavEstimateIcon = ({ active }: { active: boolean }) => (
+const NavEstimateIcon = ({ active }) => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
     <rect x="3" y="2" width="14" height="16" rx="2" stroke={active ? "#FACC15" : "#64748b"} strokeWidth="1.8" />
     <path d="M6.5 7h7M6.5 10.5h7M6.5 14h4.5" stroke={active ? "#FACC15" : "#64748b"} strokeWidth="1.6" strokeLinecap="round" />
   </svg>
 );
-const NavHeartIcon = ({ active }: { active: boolean }) => (
+const NavHeartIcon = ({ active }) => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
     <path d="M10 15.5S3.5 11.5 3.5 7A3.5 3.5 0 0110 4.8 3.5 3.5 0 0116.5 7c0 4.5-6.5 8.5-6.5 8.5z"
       fill={active ? "#FACC15" : "none"} stroke={active ? "#FACC15" : "#64748b"} strokeWidth="1.8" strokeLinejoin="round" />
   </svg>
 );
-const NavCartIcon = ({ active, count = 0 }: { active: boolean; count?: number }) => (
-  <div className="relative flex items-center justify-center">
-    <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+const NavCartIcon = ({ active, count = 0 }) => (
+  <div className="relative flex items-center justify-center w-5 h-5">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <path d="M2 3h2.5l2 8h9l1.8-5.5H6.5" stroke={active || count>0 ? "#FACC15" : "#64748b"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="8.5" cy="15.5" r="1.5" fill={active || count>0 ? "#FACC15" : "#64748b"} />
       <circle cx="14" cy="15.5" r="1.5" fill={active || count>0 ? "#FACC15" : "#64748b"} />
     </svg>
     {count > 0 && (
-      <div className="absolute flex items-center justify-center rounded-full bg-yellow-400 font-bold text-black leading-none"
-        style={{
-          top: "-3px",
-          right: "-3px",
-          height: "15px",
-          minWidth: "15px",
-          width: "auto",
-          paddingLeft: count > 9 ? "5px" : "0",
-          paddingRight: count > 9 ? "5px" : "0",
-          fontSize: count > 9 ? "8px" : "9px",
-          transformOrigin: "right center",
-        }}>
+      <div style={{
+        position: "absolute",
+        top: -5,
+        right: -6,
+        minWidth: 14,
+        height: 14,
+        padding: "0 3px",
+        borderRadius: 7,
+        background: "#FACC15",
+        color: "#000",
+        fontSize: 9,
+        fontWeight: 700,
+        lineHeight: "14px",
+        textAlign: "center",
+        whiteSpace: "nowrap",
+      }}>
         {count > 99 ? "99+" : count}
       </div>
     )}
   </div>
 );
-const NavProfileIcon = ({ active }: { active: boolean }) => {
+const NavProfileIcon = ({ active }) => {
   const c = active ? "#FACC15" : "#64748b";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -351,10 +520,21 @@ const NavProfileIcon = ({ active }: { active: boolean }) => {
   );
 };
 
-// ── Онбординг выбор города ────────────────────────────────────────────────────
-function CityScreen({ onDone }: { onDone: (city: string) => void }) {
+// -- Онбординг выбор города ----------------------------------------------------
+function CityScreen({ onDone }) {
   const [search, setSearch] = useState("");
+  const [toast, setToast] = useState(false);
   const filtered = cities.filter(c => c.toLowerCase().includes(search.toLowerCase()));
+
+  const handleCityClick = (city: string) => {
+    if (city === "Оренбург") {
+      onDone(city);
+    } else {
+      setToast(true);
+      setTimeout(() => setToast(false), 2500);
+    }
+  };
+
   return (
     <div className="screen-bg flex flex-col h-full px-5 pt-10">
       <div className="flex flex-col items-center gap-3 mb-8">
@@ -367,73 +547,139 @@ function CityScreen({ onDone }: { onDone: (city: string) => void }) {
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск города..." className="flex-1 bg-transparent text-main text-base outline-none placeholder:text-sub"/>
       </div>
       <div className="hide-scrollbar flex-1 overflow-y-auto space-y-2 pb-8">
-        {filtered.map(city => (
-          <button key={city} onClick={() => onDone(city)} className="w-full flex items-center justify-between rounded-2xl card-bg-raw px-4 py-4 text-left hover:card-bg-raw">
-            <div className="flex items-center gap-3">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#FACC15" strokeWidth="1.6"/><circle cx="12" cy="9" r="2.5" stroke="#FACC15" strokeWidth="1.4"/></svg>
-              <span className="text-main font-medium">{city}</span>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
-        ))}
+        {filtered.map(city => {
+          const active = city === "Оренбург";
+          return (
+            <button key={city} onClick={() => handleCityClick(city)}
+              className="w-full flex items-center justify-between rounded-2xl card-bg-raw px-4 py-4 text-left"
+              style={!active ? {opacity: 0.4} : undefined}>
+              <div className="flex items-center gap-3">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"
+                    stroke={active ? "#FACC15" : "#64748b"} strokeWidth="1.6"/>
+                  <circle cx="12" cy="9" r="2.5" stroke={active ? "#FACC15" : "#64748b"} strokeWidth="1.4"/>
+                </svg>
+                <span className={active ? "text-main font-medium" : "text-slate-500 font-medium"}>{city}</span>
+              </div>
+              {active
+                ? <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                : <span className="text-[10px] text-slate-600 font-medium">Скоро</span>
+              }
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Toast */}
+      <div style={{
+        position: "fixed", bottom: 40, left: "50%", transform: `translateX(-50%) translateY(${toast ? 0 : 16}px)`,
+        opacity: toast ? 1 : 0, transition: "all 0.25s ease", pointerEvents: "none",
+        background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)",
+        borderRadius: 14, padding: "10px 18px", whiteSpace: "nowrap", zIndex: 100,
+      }}>
+        <span className="text-sm text-slate-300">🚧 Этот город скоро появится</span>
       </div>
     </div>
   );
 }
 
-// ── Сплэш ─────────────────────────────────────────────────────────────────────
-function SplashScreen({ onDone }: { onDone: () => void }) {
+// -- Сплэш ---------------------------------------------------------------------
+function SplashScreen({ onDone }) {
   const [slide, setSlide] = useState(0);
   const slides = [
-    { title: "Strovo — стройка без переплат", sub: "Агрегатор стройматериалов для прорабов и бригадиров" },
-    { title: "500+ поставщиков в одном месте", sub: "Сравнивай цены и находи лучшие предложения за секунды" },
-    { title: "Сметный калькулятор бесплатно", sub: "Плитка, обои, краска, ламинат — считай прямо в приложении" },
+    { type: "welcome" },
+    {
+      type: "feature",
+      icon: ()=><svg width="56" height="56" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#FACC15" strokeWidth="1.8"/><path d="M16.5 16.5L21 21" stroke="#FACC15" strokeWidth="2" strokeLinecap="round"/><path d="M8 11h6M11 8v6" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/></svg>,
+      title: "Сравни цены за секунды",
+      sub: "Strovo показывает предложения от сотен поставщиков и автоматически выбирает лучшее"
+    },
+    {
+      type: "feature",
+      icon: ()=><svg width="56" height="56" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#FACC15" strokeWidth="1.8" strokeLinecap="round"/><circle cx="9" cy="7" r="4" stroke="#FACC15" strokeWidth="1.8"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="#FACC15" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+      title: "500+ поставщиков",
+      sub: "Все цены на стройматериалы в одном месте. Не нужно обзванивать базы"
+    },
+    {
+      type: "feature",
+      icon: ()=><svg width="56" height="56" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="#FACC15" strokeWidth="1.8"/><path d="M8 12l3 3 5-5" stroke="#FACC15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+      title: "Сметный расчёт",
+      sub: "Посчитай плитку, краску, обои и ламинат прямо в приложении — бесплатно"
+    },
   ];
-  const next = () => { if (slide < slides.length - 1) setSlide(s => s + 1); else onDone(); };
+  const handleNext = () => { if (slide < slides.length - 1) { setSlide(slide + 1); } else { onDone(); } };
+  const current = slides[slide];
+  const isWelcome = current.type === "welcome";
+
   return (
-    <div className="screen-bg flex flex-col h-full px-6">
-      <div className="flex-1 flex flex-col items-center justify-center gap-8">
-        <div className="flex flex-col items-center gap-3">
-          <StrovoLogo size={90} />
-          <span className="text-main text-3xl font-bold tracking-tight">Strovo</span>
-          <span className="text-xs text-slate-500 tracking-widest uppercase">стройка без переплат</span>
-        </div>
-        <div className="w-full rounded-[24px] card-bg-raw p-6 min-h-[130px] flex flex-col justify-center gap-3">
-          <div className="text-main text-lg font-bold leading-snug">{slides[slide].title}</div>
-          <div className="text-sm text-slate-400 leading-relaxed">{slides[slide].sub}</div>
-        </div>
-        <div className="flex gap-2">
-          {slides.map((_, i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === slide ? "w-6 bg-yellow-400" : "w-1.5 bg-slate-700"}`} />
-          ))}
-        </div>
-      </div>
-      <div className="pb-12 flex flex-col gap-3">
-        <button onClick={next} className="w-full rounded-2xl bg-yellow-400 py-4 font-bold text-black text-base">
-          {slide < slides.length - 1 ? "Далее" : "Начать"}
-        </button>
-        {slide < slides.length - 1 && (
-          <button onClick={onDone} className="w-full py-3 text-sm text-slate-500">Пропустить</button>
+    <div className="screen-bg" style={{height:"100dvh",display:"flex",flexDirection:"column"}}>
+
+      {/* Кнопка пропустить */}
+      <div style={{display:"flex",justifyContent:"flex-end",padding:"40px 24px 0",minHeight:"60px"}}>
+        {!isWelcome && slide < slides.length - 1 && (
+          <button onClick={onDone} className="text-sm text-slate-500">Пропустить</button>
         )}
       </div>
+
+      {/* Контент — строго по центру */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 32px"}}>
+        {isWelcome ? (
+          /* Приветственный слайд */
+          <div className="flex flex-col items-center gap-6 text-center">
+            <StrovoLogo size={96} />
+            <div>
+              <div className="text-main text-4xl font-bold tracking-tight mb-2">Строво</div>
+              <div className="text-yellow-400 text-sm font-semibold tracking-widest uppercase mb-5">стройка без переплат</div>
+              <div className="text-slate-400 text-sm leading-relaxed max-w-[260px]">
+                Агрегатор стройматериалов для прорабов и бригадиров. Находим лучшие цены автоматически.
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Фича-слайды */
+          <div className="flex flex-col items-center gap-7 text-center w-full">
+            <div className="flex items-center justify-center w-28 h-28 rounded-[28px] bg-yellow-400/10 border border-yellow-400/20">
+              {current.icon && current.icon()}
+            </div>
+            <div className="space-y-3">
+              <div className="text-main text-2xl font-bold leading-tight">{current.title}</div>
+              <div className="text-slate-400 text-sm leading-relaxed max-w-[260px]">{current.sub}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Точки + кнопка внизу */}
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"20px",padding:"0 24px 48px"}}>
+        <div className="flex gap-2 items-center">
+          {slides.map((_, i) => (
+            <button key={i} onClick={() => setSlide(i)}
+              className={`rounded-full transition-all duration-300 ${i === slide ? "w-6 h-2 bg-yellow-400" : "w-2 h-2 bg-slate-700"}`}
+            />
+          ))}
+        </div>
+        <button onClick={handleNext}
+          className="w-full rounded-2xl bg-yellow-400 py-4 font-bold text-black text-base">
+          {slide === 0 ? "Начать" : slide < slides.length - 1 ? "Далее" : "Войти в приложение"}
+        </button>
+      </div>
+
     </div>
   );
 }
 
-// ── Шапки ─────────────────────────────────────────────────────────────────────
-function TopBarMain({ setTab, onSearchOpen }: { setTab: (t: Tab) => void; onSearchOpen: () => void }) {
+// -- Шапки ---------------------------------------------------------------------
+function TopBarMain({ setTab, onSearchOpen }) {
   return (
     <div className="topbar-bg sticky top-0 z-40 px-4 pt-3 pb-3">
-      <div className="mb-3 flex items-center justify-between px-1">
-        <div className="text-main text-xl font-bold">22:42</div>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 flex-1">
           <StrovoLogo size={28} />
           <div className="flex flex-col">
-            <span className="text-main text-base font-bold leading-none">Strovo</span>
+            <span className="text-main text-base font-bold leading-none">Строво</span>
             <span className="text-sub text-[9px] leading-none tracking-wide">стройка без переплат</span>
           </div>
         </div>
-        <div className="text-main text-xs">LTE 84</div>
       </div>
       <div className="flex items-center gap-2">
         <button onClick={() => setTab("catalog")} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 light:bg-gray-100 border border-white/5 light:border-gray-200" style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}}>
@@ -451,12 +697,12 @@ function TopBarMain({ setTab, onSearchOpen }: { setTab: (t: Tab) => void; onSear
   );
 }
 
-function TopBarInner({ title, onBack, showSearch = true }: { title: string; onBack: () => void; showSearch?: boolean }) {
+function TopBarInner({ title, onBack, showSearch = true }) {
   return (
     <div className="topbar-bg sticky top-0 z-40 px-4 pt-3 pb-3">
       <div className="mb-1 flex items-center justify-between px-1">
-        <div className="text-main text-xl font-bold">22:42</div>
-        <div className="text-main text-xs">LTE 84</div>
+        
+        
       </div>
       <div className="flex items-center gap-3 py-1">
         <button onClick={onBack} className="flex h-10 w-10 items-center justify-center rounded-full" style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}}>
@@ -475,12 +721,12 @@ function TopBarInner({ title, onBack, showSearch = true }: { title: string; onBa
   );
 }
 
-function TopBarTitle({ title, onSearchOpen }: { title: string; onSearchOpen: () => void }) {
+function TopBarTitle({ title, onSearchOpen }) {
   return (
     <div className="topbar-bg sticky top-0 z-40 px-4 pt-3 pb-3">
       <div className="mb-1 flex items-center justify-between px-1">
-        <div className="text-main text-xl font-bold">22:42</div>
-        <div className="text-main text-xs">LTE 84</div>
+        
+        
       </div>
       <div className="flex items-center gap-3 py-1">
         <div className="h-10 w-10" />
@@ -493,21 +739,40 @@ function TopBarTitle({ title, onSearchOpen }: { title: string; onSearchOpen: () 
   );
 }
 
-// ── Карточка товара (детальный экран) ─────────────────────────────────────────
-function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggleFavorite }: {
-  item: Product; onBack: () => void; onAdd: (item: Product) => void;
-  onOpen: (item: Product) => void;
-  isFavorite: boolean; onToggleFavorite: (id: number) => void;
-}) {
-  // ── REAL COMPARISON ENGINE ─────────────────────────────────────────────
+// -- Карточка товара (детальный экран) -----------------------------------------
+function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggleFavorite, sheetsOffers }) {
+  // -- REAL COMPARISON ENGINE ---------------------------------------------
   const engineProductId = PRODUCT_ID_MAP[item.id];
-  const offers = React.useMemo(() => fetchOffers(engineProductId), [engineProductId]);
+
+  const offers = React.useMemo(() => {
+    // 1. Sheets offers matched by numeric item.id
+    if (sheetsOffers && sheetsOffers.length > 0) {
+      const live = sheetsOffers
+        .filter(o => Number(o.productId) === Number(item.id))
+        .map(o => ({
+          id: String(o.id),
+          productId: String(o.productId),
+          supplierName: o.supplierName || "Поставщик",
+          city: o.city || "Оренбург",
+          price: Number(o.price) || 0,
+          deliveryDays: Number(o.deliveryDays) || 1,
+          availability: ["high","medium","low"].includes(o.availability) ? o.availability : "medium",
+          rating: typeof o.rating === "string" && o.rating.includes("T") ? 4.5 : Number(o.rating) || 4.5,
+          lastUpdated: o.updatedAt || new Date().toISOString(),
+        }));
+      if (live.length > 0) return live;
+    }
+    // 2. Fallback to local mock data
+    if (engineProductId) return fetchOffers(engineProductId);
+    return [];
+  }, [item.id, engineProductId, sheetsOffers]);
+
   const comparison = React.useMemo(() => runComparison(offers), [offers]);
 
   // selectedRank: 0 = best offer (default), user can change
   const [selectedRank, setSelectedRank] = React.useState(0);
   const selectedOffer = comparison?.allOffers[selectedRank]?.offer ?? comparison?.bestOffer;
-  // ──────────────────────────────────────────────────────────────────────
+  // ----------------------------------------------------------------------
   return (
     <div className="flex flex-col h-full">
       <TopBarInner title={item.name} onBack={onBack} />
@@ -530,13 +795,13 @@ function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggle
           <div className="text-main text-lg font-bold leading-snug">{item.name}</div>
           <div className="mt-1 flex items-center gap-2">
             <span className="text-yellow-400 text-sm">★ {item.rating}</span>
-            <span className="text-slate-500 text-sm">· {item.unit}</span>
+            <span className="text-slate-500 text-sm">. {item.unit}</span>
           </div>
         </div>
 
         {comparison && (
           <>
-            {/* ── SAVINGS BLOCK — "Вы экономите X ₽" ─────────────────────── */}
+            {/* -- SAVINGS BLOCK - "Вы экономите X  ₽" ----------------------- */}
             {comparison.savings > 0 && (
               <div className="rounded-[16px] bg-emerald-400/10 border border-emerald-400/20 px-4 py-3 mb-3 flex items-center gap-3">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" fill="#34d399" opacity="0.3"/><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" stroke="#34d399" strokeWidth="1.4"/></svg>
@@ -551,21 +816,27 @@ function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggle
               </div>
             )}
 
-            {/* ── SELECTED OFFER BLOCK ─────────────────────────────────── */}
-            <div className="rounded-[20px] card-bg-raw p-4 mb-3 border border-yellow-400/30">
+            {/* -- SELECTED OFFER BLOCK ----------------------------------- */}
+            <div className={`rounded-[20px] card-bg-raw p-4 mb-3 transition-all ${selectedRank === 0 ? "border-2 border-yellow-400" : "border border-yellow-400/20"}`}
+              style={selectedRank === 0 ? {boxShadow:"0 0 20px rgba(250,204,21,0.15)"} : undefined}>
+              {/* Рекомендация Strovo - только для лучшего предложения */}
+              {selectedRank === 0 && (
+                <div className="flex items-center gap-2 mb-3 -mx-4 -mt-4 px-4 pt-3 pb-2.5 rounded-t-[18px] bg-yellow-400/10 border-b border-yellow-400/20">
+                  <StrovoLogo size={18}/>
+                  <span className="text-xs font-bold text-yellow-400">Рекомендация Строво</span>
+                  <span className="text-[10px] text-slate-500 ml-auto">рассчитано автоматически</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-semibold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full">
                   {selectedRank === 0 ? "Лучшее предложение" : "Выбранный поставщик"}
                 </span>
-                {selectedRank === 0 && (
-                  <span className="text-xs text-slate-500">рассчитано автоматически</span>
-                )}
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-2xl font-bold text-yellow-400">{formatPrice(selectedOffer?.price ?? item.price)}</div>
                   <div className="text-sm text-slate-400 mt-0.5">
-                    {selectedOffer?.supplierName} · {deliveryLabel(selectedOffer?.deliveryDays ?? 0)}
+                    {selectedOffer?.supplierName} . {deliveryLabel(selectedOffer?.deliveryDays ?? 0)}
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs text-slate-500">★ {selectedOffer?.rating}</span>
@@ -581,7 +852,7 @@ function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggle
               </div>
             </div>
 
-            {/* ── ALL OFFERS — sorted by engine score ──────────────────── */}
+            {/* -- ALL OFFERS - sorted by engine score -------------------- */}
             <div className="mb-3">
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className="text-sm text-slate-400">Все предложения ({comparison.allOffers.length})</span>
@@ -591,39 +862,34 @@ function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggle
                 {comparison.allOffers.map((ranked, i) => (
                   <div key={ranked.offer.id}
                     onClick={() => setSelectedRank(i)}
-                    className={`rounded-[16px] card-bg-raw p-4 flex items-center justify-between cursor-pointer transition-all ${selectedRank===i?"border border-yellow-400/60":""}`}>
-                    <div className="flex items-center gap-2">
-                      <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedRank===i?"border-yellow-400":"border-slate-600"}`}>
-                        {selectedRank===i && <div className="h-2 w-2 rounded-full bg-yellow-400"/>}
-                      </div>
-                      <div>
-                        <div className="text-main text-sm font-semibold">{ranked.offer.supplierName}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-slate-500">★ {ranked.offer.rating}</span>
-                          <span className="text-slate-600 text-xs">·</span>
-                          <span className="text-xs text-slate-400">{ranked.deliveryLabel}</span>
-                          <span className="text-slate-600 text-xs">·</span>
-                          <span className={`text-xs ${ranked.availabilityColor}`}>{ranked.availabilityLabel}</span>
+                    className={`rounded-[16px] card-bg-raw p-3 cursor-pointer transition-all ${selectedRank===i?"border border-yellow-400/60":""}`}>
+                    <div className="flex items-center justify-between">
+                      {/* Left: radio + name */}
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedRank===i?"border-yellow-400":"border-slate-600"}`}>
+                          {selectedRank===i && <div className="h-2 w-2 rounded-full bg-yellow-400"/>}
                         </div>
+                        <span className="text-main text-sm font-semibold truncate">{ranked.offer.supplierName}</span>
+                      </div>
+                      {/* Right: price + badge */}
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <span className={`text-sm font-bold ${selectedRank===i?"text-yellow-400":"text-main"}`}>
+                          {formatPrice(ranked.offer.price)}
+                        </span>
+                        {ranked.isBest && (
+                          <span className="text-[10px] text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap">Выгоднее</span>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className={`text-base font-bold ${selectedRank===i?"text-yellow-400":"text-main"}`}>
-                        {formatPrice(ranked.offer.price)}
-                      </div>
-                      {ranked.isBest && (
-                        <span className="text-[10px] text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full font-medium">Выгоднее</span>
-                      )}
+                    {/* Second row: meta info */}
+                    <div className="flex items-center gap-3 mt-1 pl-6">
+                      <span className="text-xs text-slate-500">★ {ranked.offer.rating}</span>
+                      <span className="text-xs text-slate-400">{ranked.deliveryLabel}</span>
+                      <span className={`text-xs ${ranked.availabilityColor}`}>{ranked.availabilityLabel}</span>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* ── RECOMMENDATION ───────────────────────────────────────── */}
-            <div className="rounded-[16px] bg-yellow-400/5 border border-yellow-400/15 px-4 py-3 mb-3">
-              <div className="text-xs text-yellow-400/80 font-semibold mb-1">💡 Рекомендация Strovo</div>
-              <div className="text-xs text-slate-400 leading-relaxed">{comparison.recommendation}</div>
             </div>
           </>
         )}
@@ -664,16 +930,13 @@ function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggle
   );
 }
 
-// ── Поиск ─────────────────────────────────────────────────────────────────────
-function SearchScreen({ onClose, onAdd, favorites, onToggleFavorite, onOpenProduct }: {
-  onClose: () => void; onAdd: (item: Product) => void;
-  favorites: Set<number>; onToggleFavorite: (id: number) => void;
-  onOpenProduct: (item: Product) => void;
-}) {
+// -- Поиск ---------------------------------------------------------------------
+function SearchScreen({ onClose, onAdd, favorites, onToggleFavorite, onOpenProduct, allProducts: ap }) {
+  const productList = ap || products;
   const [query, setQuery] = useState("");
   const results = useMemo(() => {
     if (!query.trim()) return [];
-    return products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()) || p.category.toLowerCase().includes(query.toLowerCase()));
+    return productList.filter(p => p.name.toLowerCase().includes(query.toLowerCase()) || p.category.toLowerCase().includes(query.toLowerCase()));
   }, [query]);
   return (
     <div className="flex flex-col h-full screen-bg">
@@ -685,7 +948,7 @@ function SearchScreen({ onClose, onAdd, favorites, onToggleFavorite, onOpenProdu
       </div>
       <div className="hide-scrollbar flex-1 overflow-y-auto px-4 pb-4">
         {query.trim() === "" && <div className="mt-8 text-center text-slate-500 text-sm">Введите название товара или категорию</div>}
-        {query.trim() !== "" && results.length === 0 && <div className="mt-8 text-center text-slate-500 text-sm">Ничего не найдено по запросу «{query}»</div>}
+        {query.trim() !== "" && results.length === 0 && <div className="mt-8 text-center text-slate-500 text-sm">Ничего не найдено по запросу "{query}"</div>}
         {results.length > 0 && (
           <div className="grid grid-cols-2 gap-3 mt-2">
             {results.map(item => <ProductCard key={item.id} item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpenProduct}/>)}
@@ -696,27 +959,36 @@ function SearchScreen({ onClose, onAdd, favorites, onToggleFavorite, onOpenProdu
   );
 }
 
-// ── Product Card ──────────────────────────────────────────────────────────────
-function ProductCard({ item, isFavorite, onToggleFavorite, onAdd, onOpen }: {
-  item: Product; isFavorite: boolean;
-  onToggleFavorite: (id: number) => void;
-  onAdd: (item: Product) => void;
-  onOpen: (item: Product) => void;
-}) {
+// -- Product Card --------------------------------------------------------------
+function ProductCard({ item, isFavorite, onToggleFavorite, onAdd, onOpen }) {
+  const [imgError, setImgError] = React.useState(false);
+  const hasImg = item.img && !imgError;
   return (
     <div className="card-bg overflow-hidden rounded-[24px] shadow-sm">
       <button onClick={() => onOpen(item)} className="w-full text-left">
-        <div className={`relative h-32 bg-gradient-to-br ${item.color} p-3`}>
+        <div className={`relative h-32 overflow-hidden ${!hasImg ? `bg-gradient-to-br ${item.color}` : ""}`}>
+          {hasImg ? (
+            <img
+              src={item.img}
+              alt={item.name}
+              className="h-full w-full object-cover"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="grid grid-cols-2 gap-1">{[0,1,2,3].map(i=><div key={i} className="h-4 w-8 rounded-sm bg-black/20"/>)}</div>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none"/>
           <button onClick={e => { e.stopPropagation(); onToggleFavorite(item.id); }} className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/90">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
               <path d="M10 15.5S3.5 11.5 3.5 7A3.5 3.5 0 0110 4.8 3.5 3.5 0 0116.5 7c0 4.5-6.5 8.5-6.5 8.5z"
                 fill={isFavorite ? "#ef4444" : "none"} stroke={isFavorite ? "#ef4444" : "#64748b"} strokeWidth="1.8" strokeLinejoin="round"/>
             </svg>
           </button>
-          <div className="absolute left-3 top-3 rounded-full bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">-{item.discount}%</div>
-          <div className="flex h-full items-center justify-center">
-            <div className="grid grid-cols-2 gap-1">{[0,1,2,3].map(i=><div key={i} className="h-4 w-8 rounded-sm bg-black/20"/>)}</div>
-          </div>
+          {item.discount > 0 && (
+            <div className="absolute left-3 top-3 rounded-full bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">-{item.discount}%</div>
+          )}
         </div>
         <div className="p-3">
           <div className="text-main line-clamp-2 min-h-[42px] text-sm font-medium">{item.name}</div>
@@ -731,8 +1003,28 @@ function ProductCard({ item, isFavorite, onToggleFavorite, onAdd, onOpen }: {
   );
 }
 
-// ── Экраны ────────────────────────────────────────────────────────────────────
-function HomeScreen({ favorites, onToggleFavorite, onAdd, onOpen }: { favorites: Set<number>; onToggleFavorite: (id: number) => void; onAdd: (item: Product) => void; onOpen: (item: Product) => void }) {
+// -- Экраны --------------------------------------------------------------------
+function HomeProductGrid({ favorites, onToggleFavorite, onAdd, onOpen }) {
+  const [visibleCount, setVisibleCount] = React.useState(8);
+  const visible = products.slice(0, visibleCount);
+  const hasMore = visibleCount < products.length;
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        {visible.map(item=><ProductCard key={item.id} item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/>)}
+      </div>
+      {hasMore && (
+        <button onClick={()=>setVisibleCount(v=>Math.min(v+8, products.length))}
+          className="w-full rounded-2xl py-3.5 text-sm font-semibold text-yellow-400 border border-yellow-400/40 mt-2">
+          Показать ещё ({products.length - visibleCount} товаров)
+        </button>
+      )}
+    </>
+  );
+}
+
+function HomeScreen({ favorites, onToggleFavorite, onAdd, onOpen, allProducts: ap }) {
+  const productList = ap || products;
   return (
     <div className="tab-enter space-y-4 pb-24">
       <div className="overflow-hidden rounded-[24px] bg-gradient-to-r from-[#3c2f15] via-[#5b451a] to-[#7a5d21] p-4">
@@ -743,25 +1035,69 @@ function HomeScreen({ favorites, onToggleFavorite, onAdd, onOpen }: { favorites:
       </div>
       <div className="text-main rounded-full border-2 border-current px-4 py-2 text-xl font-medium w-fit">Для вас</div>
       <div className="grid grid-cols-2 gap-3">
-        {products.map(item=><ProductCard key={item.id} item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/>)}
+        {productList.slice(0,6).map(item=><ProductCard key={item.id} item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/>)}
       </div>
     </div>
   );
 }
 
-type FilterDelivery = "all" | "today" | "tomorrow";
-type FilterSort = "default" | "price_asc" | "price_desc";
 
-function CatalogScreen({ favorites, onToggleFavorite, onAdd, selectedCategory, onOpen }: {
-  favorites: Set<number>; onToggleFavorite: (id: number) => void;
-  onAdd: (item: Product) => void; selectedCategory: string | null;
-  onOpen: (item: Product) => void;
-}) {
-  const [delivery, setDelivery] = useState<FilterDelivery>("all");
-  const [sort, setSort] = useState<FilterSort>("default");
+function CatalogProductList({ products, favorites, onToggleFavorite, onAdd, onOpen }) {
+  const [visibleCount, setVisibleCount] = React.useState(8);
+  const visible = items.slice(0, visibleCount);
+  const hasMore = visibleCount < items.length;
+  if (items.length === 0) return (
+    <div className="col-span-2 rounded-[20px] bg-[#182235] p-5 text-center text-slate-300">Товары не найдены</div>
+  );
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        {visible.map(item=>(
+          <ProductCard key={item.id} item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/>
+        ))}
+      </div>
+      {hasMore && (
+        <button onClick={()=>setVisibleCount(c=>Math.min(c+8, items.length))}
+          className="w-full rounded-2xl py-4 text-sm font-semibold text-yellow-400 border border-yellow-400/30 bg-yellow-400/5">
+          Показать ещё . осталось {items.length - visibleCount}
+        </button>
+      )}
+      {!hasMore && visibleCount > 8 && (
+        <div className="text-center text-sub text-xs py-2">Все товары загружены</div>
+      )}
+    </div>
+  );
+}
+
+function CatalogProductGrid({ products, favorites, onToggleFavorite, onAdd, onOpen }) {
+  const [visibleCount, setVisibleCount] = React.useState(6);
+  // Reset when products change (category switch)
+  React.useEffect(() => { setVisibleCount(6); }, [prods.length > 0 ? prods[0].category : ""]);
+  const visible = prods.slice(0, visibleCount);
+  const hasMore = visibleCount < prods.length;
+  if (prods.length === 0) return <div className="col-span-2 rounded-[20px] card-bg p-5 text-center text-slate-300">Товары не найдены</div>;
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        {visible.map(item=><ProductCard key={item.id} item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/>)}
+      </div>
+      {hasMore && (
+        <button onClick={()=>setVisibleCount(v=>Math.min(v+6, prods.length))}
+          className="w-full rounded-2xl py-3.5 text-sm font-semibold text-yellow-400 border border-yellow-400/40 mt-2">
+          Показать ещё ({prods.length - visibleCount})
+        </button>
+      )}
+    </>
+  );
+}
+
+function CatalogScreen({ favorites, onToggleFavorite, onAdd, selectedCategory, onOpen, allProducts: ap }) {
+  const productList = ap || products;
+  const [delivery, setDelivery] = useState("all");
+  const [sort, setSort] = useState("default");
 
   const filteredProducts = useMemo(() => {
-    let list = selectedCategory ? products.filter(p => p.category === selectedCategory) : products;
+    let list = selectedCategory ? productList.filter(p => p.category === selectedCategory) : productList;
     if (delivery === "today") list = list.filter(p => p.delivery === "Сегодня");
     if (delivery === "tomorrow") list = list.filter(p => p.delivery === "Завтра");
     if (sort === "price_asc") list = [...list].sort((a, b) => a.price - b.price);
@@ -772,7 +1108,7 @@ function CatalogScreen({ favorites, onToggleFavorite, onAdd, selectedCategory, o
   if (selectedCategory) {
     return (
       <div className="space-y-3 pb-24">
-        {/* Фильтры — стиль Каспи */}
+        {/* Фильтры - стиль Каспи */}
         <div className="flex items-center gap-2 pb-1" style={{overflowX:"auto",WebkitOverflowScrolling:"touch",msOverflowStyle:"none",scrollbarWidth:"none"}}>
           {/* Сортировка */}
           <button onClick={() => setSort(s => s === "price_asc" ? "price_desc" : "price_asc")}
@@ -791,14 +1127,14 @@ function CatalogScreen({ favorites, onToggleFavorite, onAdd, selectedCategory, o
           {/* Разделитель */}
           <div className="w-px h-6 bg-white/15 shrink-0"/>
           {/* Прокручиваемые теги */}
-          {(["all","today","tomorrow"] as FilterDelivery[]).map(d => (
+          {(["all","today","tomorrow"] as const).map(d => (
             <button key={d} onClick={() => setDelivery(d)}
               className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium border transition-all flex items-center gap-1 ${delivery===d ? "bg-yellow-400 text-black border-yellow-400" : "bg-transparent text-slate-400 border-white/15"}`}>
               {d==="all"?"Доставка":d==="today"?"Сегодня":"Завтра"}
               {d==="all" && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3l3 3 3-3" stroke={delivery==="all"?"#000":"#64748b"} strokeWidth="1.2" strokeLinecap="round"/></svg>}
             </button>
           ))}
-          {(["default","price_asc","price_desc"] as FilterSort[]).map(s => (
+          {(["default","price_asc","price_desc"] as const).map(s => (
             <button key={s} onClick={() => setSort(s)}
               className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium border transition-all flex items-center gap-1 ${sort===s && s!=="default" ? "bg-yellow-400 text-black border-yellow-400" : "bg-transparent text-slate-400 border-white/15"}`}>
               {s==="default"?"Цена":s==="price_asc"?"↑ Цена":"↓ Цена"}
@@ -831,7 +1167,7 @@ function CatalogScreen({ favorites, onToggleFavorite, onAdd, selectedCategory, o
       <div className="grid grid-cols-2 gap-3">
         {catalogCategories.map(cat=>(
           <button key={cat.id} className="rounded-[20px] card-bg-raw p-4 text-left hover:card-bg-raw" data-cat={cat.title}>
-            <div className="mb-3 pointer-events-none">{cat.icon}</div>
+            <div className="mb-3 pointer-events-none">{CAT_ICONS[cat.id]?.()}</div>
             <div className="text-main text-sm font-medium leading-snug pointer-events-none">{cat.title}</div>
           </button>
         ))}
@@ -840,7 +1176,7 @@ function CatalogScreen({ favorites, onToggleFavorite, onAdd, selectedCategory, o
   );
 }
 
-function NumInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function NumInput({ label, value, onChange }) {
   return (
     <div>
       <div className="mb-1 text-sm text-slate-400">{label}</div>
@@ -849,7 +1185,7 @@ function NumInput({ label, value, onChange }: { label: string; value: string; on
   );
 }
 
-function EstimateScreen({ tool, onOpenTool }: { tool: EstimateTool; onOpenTool: (key: EstimateTool) => void }) {
+function EstimateScreen({ tool, onOpenTool }) {
   const [vals, setVals] = useState({ tileRL:"5",tileRW:"4",tileL:"0.6",tileW:"0.6",wallH:"2.7",wallP:"18",rollL:"10",rollW:"1.06",paintA:"45",paintR:"0.12",puttyA:"60",puttyR:"1.2",drywallA:"50",sheetA:"3",lamA:"28",packA:"2.2" });
   const set = (k: string) => (v: string) => setVals(p=>({...p,[k]:v}));
   const n = (k: string) => Number(vals[k as keyof typeof vals])||0;
@@ -861,14 +1197,14 @@ function EstimateScreen({ tool, onOpenTool }: { tool: EstimateTool; onOpenTool: 
     drywall:(()=>{const v=n("drywallA")/n("sheetA")*1.1;return v&&n("sheetA")?Math.ceil(v):null;})(),
     laminate:(()=>{const v=n("lamA")/n("packA")*1.1;return v&&n("packA")?Math.ceil(v):null;})(),
   }),[vals]);
-  const R=({text}:{text:string})=><div className="input-bg mt-4 rounded-[20px] p-4 text-lg font-bold text-yellow-400">{text}</div>;
+  const R=({text})=><div className="input-bg mt-4 rounded-[20px] p-4 text-lg font-bold text-yellow-400">{text}</div>;
   if (tool==="main") return (
     <div className="space-y-4 pb-24">
       <div className="card-bg rounded-[24px] p-4"><div className="text-main text-xl font-bold">Сметный расчёт</div><div className="text-sub mt-1 text-sm">Выберите калькулятор</div></div>
       <div className="grid grid-cols-2 gap-3">
         {estimateCards.map(card=>(
           <button key={card.id} onClick={()=>onOpenTool(card.key)} className="card-bg rounded-[20px] p-4 text-left hover:opacity-80 w-full">
-            <div className="mb-3">{card.icon}</div>
+            <div className="mb-3">{EST_ICONS[card.key]?.()}</div>
             <div className="text-main text-sm font-semibold">{card.title}</div>
             <div className="mt-1 text-xs text-slate-400">{card.subtitle}</div>
           </button>
@@ -879,16 +1215,17 @@ function EstimateScreen({ tool, onOpenTool }: { tool: EstimateTool; onOpenTool: 
   const forms: Record<string,React.ReactNode> = {
     tile:<><div className="grid grid-cols-2 gap-3"><NumInput label="Длина комнаты, м" value={vals.tileRL} onChange={set("tileRL")}/><NumInput label="Ширина комнаты, м" value={vals.tileRW} onChange={set("tileRW")}/><NumInput label="Длина плитки, м" value={vals.tileL} onChange={set("tileL")}/><NumInput label="Ширина плитки, м" value={vals.tileW} onChange={set("tileW")}/></div>{results.tile&&<R text={`Нужно плиток: ${results.tile} шт`}/>}</>,
     wallpaper:<><div className="grid grid-cols-2 gap-3"><NumInput label="Высота стен, м" value={vals.wallH} onChange={set("wallH")}/><NumInput label="Периметр, м" value={vals.wallP} onChange={set("wallP")}/><NumInput label="Длина рулона, м" value={vals.rollL} onChange={set("rollL")}/><NumInput label="Ширина рулона, м" value={vals.rollW} onChange={set("rollW")}/></div>{results.wallpaper&&<R text={`Нужно рулонов: ${results.wallpaper} шт`}/>}</>,
-    paint:<><div className="grid grid-cols-2 gap-3"><NumInput label="Площадь, м²" value={vals.paintA} onChange={set("paintA")}/><NumInput label="Расход, л/м²" value={vals.paintR} onChange={set("paintR")}/></div>{results.paint&&<R text={`Нужно краски: ${results.paint} л`}/>}</>,
-    putty:<><div className="grid grid-cols-2 gap-3"><NumInput label="Площадь, м²" value={vals.puttyA} onChange={set("puttyA")}/><NumInput label="Расход, кг/м²" value={vals.puttyR} onChange={set("puttyR")}/></div>{results.putty&&<R text={`Нужно шпаклёвки: ${results.putty} кг`}/>}</>,
-    drywall:<><div className="grid grid-cols-2 gap-3"><NumInput label="Площадь, м²" value={vals.drywallA} onChange={set("drywallA")}/><NumInput label="Площадь листа, м²" value={vals.sheetA} onChange={set("sheetA")}/></div>{results.drywall&&<R text={`Нужно листов: ${results.drywall} шт`}/>}</>,
-    laminate:<><div className="grid grid-cols-2 gap-3"><NumInput label="Площадь, м²" value={vals.lamA} onChange={set("lamA")}/><NumInput label="Площадь упаковки, м²" value={vals.packA} onChange={set("packA")}/></div>{results.laminate&&<R text={`Нужно упаковок: ${results.laminate} шт`}/>}</>,
+    paint:<><div className="grid grid-cols-2 gap-3"><NumInput label="Площадь, кв.м" value={vals.paintA} onChange={set("paintA")}/><NumInput label="Расход, л/кв.м" value={vals.paintR} onChange={set("paintR")}/></div>{results.paint&&<R text={`Нужно краски: ${results.paint} л`}/>}</>,
+    putty:<><div className="grid grid-cols-2 gap-3"><NumInput label="Площадь, кв.м" value={vals.puttyA} onChange={set("puttyA")}/><NumInput label="Расход, кг/кв.м" value={vals.puttyR} onChange={set("puttyR")}/></div>{results.putty&&<R text={`Нужно шпаклёвки: ${results.putty} кг`}/>}</>,
+    drywall:<><div className="grid grid-cols-2 gap-3"><NumInput label="Площадь, кв.м" value={vals.drywallA} onChange={set("drywallA")}/><NumInput label="Площадь листа, кв.м" value={vals.sheetA} onChange={set("sheetA")}/></div>{results.drywall&&<R text={`Нужно листов: ${results.drywall} шт`}/>}</>,
+    laminate:<><div className="grid grid-cols-2 gap-3"><NumInput label="Площадь, кв.м" value={vals.lamA} onChange={set("lamA")}/><NumInput label="Площадь упаковки, кв.м" value={vals.packA} onChange={set("packA")}/></div>{results.laminate&&<R text={`Нужно упаковок: ${results.laminate} шт`}/>}</>,
   };
   return <div className="space-y-4 pb-24"><div className="card-bg rounded-[24px] p-4">{forms[tool]}</div></div>;
 }
 
-function FavoritesScreen({ favorites, onToggleFavorite, onAdd, onOpen }: { favorites: Set<number>; onToggleFavorite: (id: number) => void; onAdd: (item: Product) => void; onOpen: (item: Product) => void }) {
-  const items = products.filter(p=>favorites.has(p.id));
+function FavoritesScreen({ favorites, onToggleFavorite, onAdd, onOpen, allProducts: ap }) {
+  const productList = ap || products;
+  const items = productList.filter(p=>favorites.has(p.id));
   return (
     <div className="space-y-4 pb-24">
       {items.length===0 ? (
@@ -905,7 +1242,7 @@ function FavoritesScreen({ favorites, onToggleFavorite, onAdd, onOpen }: { favor
   );
 }
 
-function CartQtyControl({ qty, onChangeQty, onSetQty, onRemove }: { qty: number; onChangeQty: (delta: number) => void; onSetQty: (q: number) => void; onRemove: () => void }) {
+function CartQtyControl({ qty, onChangeQty, onSetQty, onRemove }) {
   const [editing, setEditing] = useState(false);
   const [inputVal, setInputVal] = useState(String(qty));
   const MAX_QTY = 999;
@@ -920,7 +1257,7 @@ function CartQtyControl({ qty, onChangeQty, onSetQty, onRemove }: { qty: number;
   return (
     <div className="flex flex-col items-end gap-2 shrink-0">
       <div className="flex items-center gap-1.5">
-        <button onClick={()=>onChangeQty(-1)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/10 dark:bg-white/10 text-main text-lg">−</button>
+        <button onClick={()=>onChangeQty(-1)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/10 dark:bg-white/10 text-main text-lg">-</button>
         {editing ? (
           <input
             autoFocus
@@ -947,23 +1284,33 @@ function CartQtyControl({ qty, onChangeQty, onSetQty, onRemove }: { qty: number;
   );
 }
 
-function CartScreen({ cartItems, onChangeQty, onSetQty, onRemove, city, onCheckout }: { cartItems: CartItem[]; onChangeQty: (id: number, delta: number) => void; onSetQty: (id: number, qty: number) => void; onRemove: (id: number) => void; city: string; onCheckout: () => void }) {
+function CartScreen({ cartItems, onChangeQty, onSetQty, onRemove, city, onCheckout }) {
   const [cartAddress, setCartAddress] = React.useState(`${city}, ул. Салмышская, 62`);
   const [showCartAddrPicker, setShowCartAddrPicker] = React.useState(false);
   const total = useMemo(()=>cartItems.reduce((s,ci)=>s+ci.product.price*ci.qty,0),[cartItems]);
   const delivery = cartItems.length?1200:0;
   return (
     <div className="space-y-4 pb-24">
-      {/* Адрес доставки — стиль Яндекс Маркет */}
+      {/* Адрес доставки */}
       {cartItems.length > 0 && (
-        <button className="w-full flex items-center gap-3 rounded-[20px] card-bg-raw px-4 py-3">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#FACC15" strokeWidth="1.6"/><circle cx="12" cy="9" r="2.5" stroke="#FACC15" strokeWidth="1.4"/></svg>
-          <div className="flex-1 text-left">
-            <div className="text-xs text-slate-500">Доставка по адресу</div>
-            <div className="text-main text-sm font-medium">{city}, ул. Салмышская, 62</div>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
+        <>
+          <button onClick={() => setShowCartAddrPicker(true)} className="w-full flex items-center gap-3 rounded-[20px] card-bg-raw px-4 py-3">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#FACC15" strokeWidth="1.6"/><circle cx="12" cy="9" r="2.5" stroke="#FACC15" strokeWidth="1.4"/></svg>
+            <div className="flex-1 text-left">
+              <div className="text-xs text-slate-500">Доставка по адресу</div>
+              <div className="text-main text-sm font-medium">{cartAddress}</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          {showCartAddrPicker && (
+            <AddressPickerModal
+              city={city}
+              currentAddress={cartAddress}
+              onSelect={(addr) => setCartAddress(addr)}
+              onClose={() => setShowCartAddrPicker(false)}
+            />
+          )}
+        </>
       )}
       {cartItems.length===0 ? (
         <div className="rounded-[24px] card-bg-raw p-8 text-center mt-4 flex flex-col items-center gap-4">
@@ -1001,14 +1348,14 @@ function CartScreen({ cartItems, onChangeQty, onSetQty, onRemove, city, onChecko
   );
 }
 
-function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, onAdd, onOpenProduct, placedOrders=[] }: { section: ProfileSection; onOpenSection: (s: ProfileSection) => void; city: string; darkMode: boolean; onToggleTheme: () => void; onAdd: (item: Product) => void; onOpenProduct: (p: Product) => void; placedOrders?: {id:string;date:string;name:string;unit:string;supplier:string;price:number;color:string;delivery:string}[] }) {
+function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, onAdd, onOpenProduct, placedOrders=[] }) {
   if (section==="orders") {
     const [orderSearch, setOrderSearch] = React.useState("");
     const staticOrders = [
-      {id:"#1042",status:"В пути",date:"Сегодня, 18:00–20:00",name:"Кирпич облицовочный · 200 шт",supplier:"СтройБаза 24",price:11980,active:true,color:"from-yellow-400 to-amber-500"},
-      {id:"#1041",status:"Доставлен",date:"18 марта 2026",name:"Цемент М500 · 10 мешков",supplier:"ПрофСнаб",price:5400,active:false,color:"from-slate-300 to-slate-500"},
-      {id:"#1038",status:"Доставлен",date:"12 марта 2026",name:"Профиль металлический · 30 шт",supplier:"МеталлТорг",price:3900,active:false,color:"from-zinc-200 to-zinc-400"},
-      {id:"#1035",status:"Доставлен",date:"5 марта 2026",name:"Гипсокартон влагостойкий · 15 листов",supplier:"СнабМаркет",price:8300,active:false,color:"from-emerald-300 to-emerald-500"},
+      {id:"#1042",status:"В пути",date:"Сегодня, 18:00-20:00",name:"Кирпич облицовочный . 200 шт",supplier:"СтройБаза 24",price:11980,active:true,color:"from-yellow-400 to-amber-500"},
+      {id:"#1041",status:"Доставлен",date:"18 марта 2026",name:"Цемент М500 . 10 мешков",supplier:"ПрофСнаб",price:5400,active:false,color:"from-slate-300 to-slate-500"},
+      {id:"#1038",status:"Доставлен",date:"12 марта 2026",name:"Профиль металлический . 30 шт",supplier:"МеталлТорг",price:3900,active:false,color:"from-zinc-200 to-zinc-400"},
+      {id:"#1035",status:"Доставлен",date:"5 марта 2026",name:"Гипсокартон влагостойкий . 15 листов",supplier:"СнабМаркет",price:8300,active:false,color:"from-emerald-300 to-emerald-500"},
     ];
     // Новые заказы из checkout + статические
     const newOrders = placedOrders.map(o=>({...o, status:"Оформлен", active:false}));
@@ -1051,7 +1398,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="1" y="11" width="15" height="8" rx="1" stroke="#FACC15" strokeWidth="1.5"/><path d="M16 14h3l3 3v4h-6v-7z" stroke="#FACC15" strokeWidth="1.5" strokeLinejoin="round"/><circle cx="5.5" cy="19.5" r="1.5" stroke="#FACC15" strokeWidth="1.3"/><circle cx="18.5" cy="19.5" r="1.5" stroke="#FACC15" strokeWidth="1.3"/></svg>
                 <div>
                   <div className="text-xs font-semibold text-yellow-400">Курьер уже в пути</div>
-                  <div className="text-[10px] text-slate-400">Ожидайте сегодня 18:00–20:00</div>
+                  <div className="text-[10px] text-slate-400">Ожидайте сегодня 18:00-20:00</div>
                 </div>
               </div>
             </>
@@ -1101,7 +1448,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
       <div className="card-bg rounded-[20px] p-4">
         <div className="text-xs text-slate-400 mb-1">Всего потрачено</div>
         <div className="text-2xl font-bold text-yellow-400">29 580 ₽</div>
-        <div className="text-xs text-slate-500 mt-0.5">8 покупок · март 2026</div>
+        <div className="text-xs text-slate-500 mt-0.5">8 покупок . март 2026</div>
       </div>
       {filteredPurch.length===0 && <div className="text-center text-sub text-sm py-4">Ничего не найдено</div>}
       {filteredPurch.map((p,i)=>(
@@ -1112,7 +1459,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
           </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-main truncate">{p.name}</div>
-              <div className="text-xs text-slate-400 mt-0.5">{p.supplier} · {p.unit}</div>
+              <div className="text-xs text-slate-400 mt-0.5">{p.supplier} . {p.unit}</div>
               <div className="flex items-center gap-2 mt-1">
                 <div className="text-sm font-bold text-yellow-400">{formatPrice(p.price)}</div>
                 <span className="text-[10px] text-slate-500">{i===0?"Сегодня":i===1?"18 марта":i===2?"12 марта":i===3?"5 марта":i===4?"28 февраля":"20 февраля"}</span>
@@ -1172,8 +1519,8 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
           <div className="flex items-center gap-3 py-1">
             <div className="flex h-10 w-14 items-center justify-center rounded-xl bg-blue-600 text-xs font-bold text-white">VISA</div>
             <div className="flex-1">
-              <div className="text-main text-sm">•••• •••• •••• 4521</div>
-              <div className="text-sub text-xs">Основная карта · до 12/27</div>
+              <div className="text-main text-sm">**** **** **** 4521</div>
+              <div className="text-sub text-xs">Основная карта . до 12/27</div>
             </div>
             <button className="text-xs font-semibold text-red-400 border border-red-400/40 rounded-lg px-3 py-1">Удалить</button>
           </div>
@@ -1224,7 +1571,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
           </div>
           <div>
             <div className="text-main text-lg font-bold">Андрей А.</div>
-            <div className="text-sub text-sm">Прораб · {city}</div>
+            <div className="text-sub text-sm">Прораб . {city}</div>
             <div className="mt-1 text-xs text-yellow-400">★ Проверенный пользователь</div>
           </div>
         </div>
@@ -1242,12 +1589,12 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
         <div className="card-bg rounded-[24px] p-4"><div className="text-sub text-sm">Сметы</div><div className="text-main mt-2 text-2xl font-bold">9</div></div>
       </div>
       {/* Тема */}
-      <div className="rounded-[24px] card-bg-raw p-4 flex items-center justify-between">
+      <div className="rounded-[24px] card-bg p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3v1M12 20v1M4.22 4.22l.7.7M18.36 18.36l.7.7M3 12h1M20 12h1M4.92 19.07l.7-.7M18.36 5.64l.7-.7" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/><circle cx="12" cy="12" r="4" stroke="#FACC15" strokeWidth="1.6"/></svg>
           <span className="text-main text-sm font-medium">Тёмная тема</span>
         </div>
-        <button onClick={()=>onToggleTheme()} className={`relative h-7 w-12 rounded-full transition-colors ${darkMode?"bg-yellow-400":"bg-slate-600"}`}>
+        <button onClick={()=>onToggleTheme()} className={`relative h-7 w-12 rounded-full transition-colors`} style={{background: darkMode ? "#FACC15" : "#cbd5e1"}}>
           <div className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${darkMode?"translate-x-5":"translate-x-0.5"}`}/>
         </button>
       </div>
@@ -1255,11 +1602,11 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
   );
 }
 
-// ── Яндекс Карта ─────────────────────────────────────────────────────────────
-function YandexMap({ city, onPending }: { city: string; onPending: (addr: string) => void }) {
-  const mapRef = React.useRef<HTMLDivElement>(null);
-  const mapInstance = React.useRef<any>(null);
-  const [status, setStatus] = React.useState<"loading"|"ready"|"error">("loading");
+// -- Яндекс Карта -------------------------------------------------------------
+function YandexMap({ city, onPending }) {
+  const mapRef = React.useRef(null);
+  const mapInstance = React.useRef(null);
+  const [status, setStatus] = React.useState("loading");
   const [geocoding, setGeocoding] = React.useState(false);
 
   const cityCoords: Record<string, [number,number]> = {
@@ -1349,7 +1696,7 @@ function YandexMap({ city, onPending }: { city: string; onPending: (addr: string
       {status==="ready" && (
         <div style={{position:"absolute",top:"12px",left:"50%",transform:"translateX(-50%)",background:"rgba(0,0,0,0.7)",borderRadius:"20px",padding:"6px 14px",pointerEvents:"none",whiteSpace:"nowrap"}}>
           <span style={{color:"white",fontSize:"12px"}}>
-            {geocoding ? "⏳ Определяем адрес..." : "Нажмите на карту или перетащите метку"}
+            {geocoding ? "Определяем адрес..." : "Нажмите на карту или перетащите метку"}
           </span>
         </div>
       )}
@@ -1364,10 +1711,10 @@ function YandexMap({ city, onPending }: { city: string; onPending: (addr: string
   );
 }
 
-// ── Возврат товара ───────────────────────────────────────────────────────────
-function ReturnScreen({ item, onBack }: { item: Product; onBack: () => void }) {
+// -- Возврат товара -----------------------------------------------------------
+function ReturnScreen({ item, onBack }) {
   const [reason, setReason] = useState("");
-  const [step, setStep] = useState<"form"|"success">("form");
+  const [step, setStep] = useState("form");
   const reasons = ["Товар не соответствует описанию","Получил бракованный товар","Ошибся при заказе","Нашёл дешевле","Долгая доставка","Другая причина"];
 
   if (step === "success") return (
@@ -1385,7 +1732,7 @@ function ReturnScreen({ item, onBack }: { item: Product; onBack: () => void }) {
           <div className="flex justify-between text-sm"><span className="text-sub">Товар</span><span className="text-main">{item.name}</span></div>
           <div className="flex justify-between text-sm"><span className="text-sub">Причина</span><span className="text-main">{reason}</span></div>
           <div className="flex justify-between text-sm"><span className="text-slate-400">Номер заявки</span><span className="text-yellow-400">#RT-{Math.floor(Math.random()*9000+1000)}</span></div>
-          <div className="flex justify-between text-sm"><span className="text-sub">Срок возврата</span><span className="text-main">3–5 рабочих дней</span></div>
+          <div className="flex justify-between text-sm"><span className="text-sub">Срок возврата</span><span className="text-main">3-5 рабочих дней</span></div>
         </div>
         <button onClick={onBack} className="w-full rounded-2xl bg-yellow-400 py-4 font-bold text-black">Готово</button>
       </div>
@@ -1422,7 +1769,7 @@ function ReturnScreen({ item, onBack }: { item: Product; onBack: () => void }) {
         {/* Условия */}
         <div className="card-bg rounded-[20px] p-4 space-y-2">
           <div className="text-main text-sm font-semibold">Условия возврата</div>
-          {["Товар должен быть в оригинальной упаковке","Срок возврата — 14 дней с момента получения","Деньги вернём в течение 3–5 рабочих дней","Доставку при возврате оплачивает поставщик"].map(c=>(
+          {["Товар должен быть в оригинальной упаковке","Срок возврата - 14 дней с момента получения","Деньги вернём в течение 3-5 рабочих дней","Доставку при возврате оплачивает поставщик"].map(c=>(
             <div key={c} className="flex items-start gap-2">
               <div className="h-1.5 w-1.5 rounded-full bg-yellow-400 mt-1.5 shrink-0"/>
               <span className="text-sub text-xs">{c}</span>
@@ -1442,12 +1789,9 @@ function ReturnScreen({ item, onBack }: { item: Product; onBack: () => void }) {
   );
 }
 
-// ── Страница оформления заказа ────────────────────────────────────────────────
-// ── Выбор адреса доставки ────────────────────────────────────────────────────
-function AddressPickerModal({ city, currentAddress, onSelect, onClose }: {
-  city: string; currentAddress: string;
-  onSelect: (addr: string) => void; onClose: () => void;
-}) {
+// -- Страница оформления заказа ------------------------------------------------
+// -- Выбор адреса доставки ----------------------------------------------------
+function AddressPickerModal({ city, currentAddress, onSelect, onClose }) {
   const [showMap, setShowMap] = React.useState(false);
   const [savedAddresses, setSavedAddresses] = React.useState([
     `${city}, ул. Салмышская, 62`,
@@ -1489,7 +1833,7 @@ function AddressPickerModal({ city, currentAddress, onSelect, onClose }: {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-main text-sm font-semibold">Андрей А.</div>
-                <div className="text-sub text-xs mt-0.5">andrey@strovo.ru · +7 (999) 123-45-67</div>
+                <div className="text-sub text-xs mt-0.5">andrey@strovo.ru . +7 (999) 123-45-67</div>
               </div>
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
@@ -1499,7 +1843,7 @@ function AddressPickerModal({ city, currentAddress, onSelect, onClose }: {
           <div className="px-5 pt-2 pb-6">
             <div className="text-main text-base font-bold mb-3">Адреса</div>
 
-            {/* Добавить новый — открывает карту */}
+            {/* Добавить новый - открывает карту */}
             <button onClick={() => setShowMap(true)} className="w-full flex items-center gap-3 py-3 border-b" style={{borderColor:"var(--row-border)"}}>
               <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-yellow-400/50 shrink-0">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="#FACC15" strokeWidth="1.8" strokeLinecap="round"/></svg>
@@ -1531,12 +1875,9 @@ function AddressPickerModal({ city, currentAddress, onSelect, onClose }: {
   );
 }
 
-function MapModal({ city, currentAddress, onConfirm, onClose }: {
-  city: string; currentAddress: string;
-  onConfirm: (addr: string) => void; onClose: () => void;
-}) {
+function MapModal({ city, currentAddress, onConfirm, onClose }) {
   const [pendingAddr, setPendingAddr] = React.useState(currentAddress);
-  const [tab, setTab] = React.useState<"map"|"list">("map");
+  const [tab, setTab] = React.useState("map");
 
   const quickAddresses = [
     `${city}, ул. Салмышская, 62`,
@@ -1563,8 +1904,8 @@ function MapModal({ city, currentAddress, onConfirm, onClose }: {
             {(["map","list"] as const).map(t=>(
               <button key={t} onClick={()=>setTab(t)}
                 className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${tab===t?"bg-yellow-400 text-black":"text-sub"}`}
-                style={tab!==t?{background:"var(--btn-bg)"}:{}}>
-                {t==="map"?"🗺 На карте":"📋 Быстрый выбор"}
+                style={tab!==t ? {background:"var(--btn-bg)"} : undefined}>
+                {t==="map"?"🗺 На карте":" Быстрый выбор"}
               </button>
             ))}
           </div>
@@ -1583,7 +1924,7 @@ function MapModal({ city, currentAddress, onConfirm, onClose }: {
             {quickAddresses.map(a=>(
               <button key={a} onClick={()=>setPendingAddr(a)}
                 className={`w-full text-left rounded-2xl p-4 flex items-center gap-3 transition-all ${pendingAddr===a?"border border-yellow-400 bg-yellow-400/5":""}`}
-                style={pendingAddr!==a?{background:"var(--btn-bg)"}:{}}>
+                style={pendingAddr!==a ? {background:"var(--btn-bg)"} : undefined}>
                 <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${pendingAddr===a?"border-yellow-400":"border-slate-600"}`}>
                   {pendingAddr===a && <div className="h-2.5 w-2.5 rounded-full bg-yellow-400"/>}
                 </div>
@@ -1614,12 +1955,10 @@ function MapModal({ city, currentAddress, onConfirm, onClose }: {
   );
 }
 
-function CheckoutScreen({ cartItems, city, onBack, onSuccess }: {
-  cartItems: CartItem[]; city: string; onBack: () => void; onSuccess: (delivery: string) => void;
-}) {
-  const [step, setStep] = useState<"form"|"success">("form");
-  const [delivery, setDelivery] = useState<"courier"|"pickup">("courier");
-  const [payment, setPayment] = useState<"card"|"cash">("card");
+function CheckoutScreen({ cartItems, city, onBack, onSuccess }) {
+  const [step, setStep] = useState("form");
+  const [delivery, setDelivery] = useState("courier");
+  const [payment, setPayment] = useState("card");
   const [address, setAddress] = useState(`${city}, ул. Салмышская, 62`);
   const [showAddrPicker, setShowAddrPicker] = useState(false);
   const [showMap, setShowMap] = useState(false);
@@ -1677,7 +2016,7 @@ function CheckoutScreen({ cartItems, city, onBack, onSuccess }: {
         {/* Способ доставки */}
         <div className="card-bg rounded-[20px] p-4 space-y-3">
           <div className="text-main text-sm font-semibold">Способ доставки</div>
-          {([["courier","Курьер","1 200 ₽ · Сегодня 18:00–20:00"],["pickup","Самовывоз","Бесплатно · Пн-Сб 9:00–18:00"]] as [typeof delivery, string, string][]).map(([k,t,s])=>(
+          {([["courier","Курьер","1 200 ₽ . Сегодня 18:00-20:00"],["pickup","Самовывоз","Бесплатно . Пн-Сб 9:00-18:00"]] as [typeof delivery, string, string][]).map(([k,t,s])=>(
             <button key={k} onClick={()=>setDelivery(k)} className="w-full flex items-center gap-3">
               <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${delivery===k?"border-yellow-400":"border-slate-600"}`}>
                 {delivery===k && <div className="h-2.5 w-2.5 rounded-full bg-yellow-400"/>}
@@ -1693,7 +2032,7 @@ function CheckoutScreen({ cartItems, city, onBack, onSuccess }: {
         {/* Способ оплаты */}
         <div className="card-bg rounded-[20px] p-4 space-y-3">
           <div className="text-main text-sm font-semibold">Способ оплаты</div>
-          {([["card","Банковская карта","•••• 4521"],["cash","Наличными","При получении"]] as [typeof payment, string, string][]).map(([k,t,s])=>(
+          {([["card","Банковская карта","**** 4521"],["cash","Наличными","При получении"]] as [typeof payment, string, string][]).map(([k,t,s])=>(
             <button key={k} onClick={()=>setPayment(k)} className="w-full flex items-center gap-3">
               <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${payment===k?"border-yellow-400":"border-slate-600"}`}>
                 {payment===k && <div className="h-2.5 w-2.5 rounded-full bg-yellow-400"/>}
@@ -1715,7 +2054,7 @@ function CheckoutScreen({ cartItems, city, onBack, onSuccess }: {
               <span className="text-main text-sm font-medium shrink-0">{new Intl.NumberFormat("ru-RU").format(ci.product.price*ci.qty)} ₽</span>
             </div>
           ))}
-          <div className="flex justify-between pt-2"><span className="text-sub text-sm">Доставка</span><span className="text-main text-sm">{deliveryCost?new Intl.NumberFormat("ru-RU").format(deliveryCost)+" ₽":"Бесплатно"}</span></div>
+          <div className="flex justify-between pt-2"><span className="text-sub text-sm">Доставка</span><span className="text-main text-sm">{deliveryCost?new Intl.NumberFormat("ru-RU").format(deliveryCost)+"  ₽":"Бесплатно"}</span></div>
           <div className="flex justify-between pt-1 border-t border-white/10 mt-1">
             <span className="text-main text-base font-bold">Итого</span>
             <span className="text-base font-bold text-yellow-400">{new Intl.NumberFormat("ru-RU").format(total+deliveryCost)} ₽</span>
@@ -1730,7 +2069,7 @@ function CheckoutScreen({ cartItems, city, onBack, onSuccess }: {
   );
 }
 
-// ── App Root ──────────────────────────────────────────────────────────────────
+// -- App Root ------------------------------------------------------------------
 const estimateToolTitles: Record<EstimateTool,string> = {
   main:"Сметный расчёт",tile:"Расчёт плитки",wallpaper:"Расчёт обоев",
   paint:"Расчёт краски",putty:"Расчёт шпаклёвки",drywall:"Расчёт гипсокартона",laminate:"Расчёт ламината",
@@ -1739,25 +2078,64 @@ const profileTitles: Record<ProfileSection,string> = {
   main:"Профиль",orders:"Заказы",purchases:"Купленные товары",settings:"Настройки",history:"История просмотра",
 };
 
-type AppStage = "city" | "splash" | "main";
 
 export default function App() {
-  const [stage, setStage] = useState<AppStage>("city");
+  const [stage, setStage] = useState<"city"|"splash"|"main">("city");
   const [darkMode, setDarkMode] = useState(true);
   const [city, setCity] = useState("");
   const [tab, setTab] = useState<Tab>("home");
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<{product:any; qty:number}[]>([]);
   const [placedOrders, setPlacedOrders] = useState<{id:string;date:string;name:string;unit:string;supplier:string;price:number;color:string;delivery:string}[]>([]);
   const [catalogCategory, setCatalogCategory] = useState<string | null>(null);
   const [estimateTool, setEstimateTool] = useState<EstimateTool>("main");
   const [profileSection, setProfileSection] = useState<ProfileSection>("main");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [openProduct, setOpenProduct] = useState<Product | null>(null);
-  const [returnProduct, setReturnProduct] = useState<Product | null>(null);
+  const [openProduct, setOpenProduct] = useState<any | null>(null);
+  const [returnProduct, setReturnProduct] = useState<any | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [sheetsOffers, setSheetsOffers] = useState(null);
+  const [sheetsProducts, setSheetsProducts] = useState(null);
 
-  const switchTab = (t: Tab) => { setTab(t); setCatalogCategory(null); setEstimateTool("main"); setProfileSection("main"); setSearchOpen(false); setOpenProduct(null); };
+  React.useEffect(() => {
+    loadSheetsData().then(data => {
+      if (data?.offers?.length) setSheetsOffers(data.offers);
+      if (data?.products?.length) setSheetsProducts(data.products);
+    });
+  }, []);
+
+  const allProducts = React.useMemo(() => {
+    if (!sheetsProducts || sheetsProducts.length === 0) return products;
+    // Get best price from offers for each product
+    const getProductPrice = (productId) => {
+      if (!sheetsOffers) return 0;
+      const offs = sheetsOffers.filter(o => Number(o.productId) === Number(productId));
+      if (!offs.length) return 0;
+      const prices = offs.map(o => Number(o.price)).filter(p => p > 0);
+      return prices.length ? Math.min(...prices) : 0;
+    };
+
+    const sheetsFormatted = sheetsProducts.map(p => {
+      const bestPrice = getProductPrice(p.id);
+      return {
+        id: Number(p.id),
+        name: p.name || "",
+        price: bestPrice,
+        oldPrice: undefined,
+        discount: 0,
+        unit: p.unit || "шт",
+        supplier: "Лучший поставщик",
+        delivery: "Уточняйте",
+        rating: Number(p.rating) || 4.5,
+        category: p.category || "Прочее",
+        color: "from-yellow-400 to-amber-500",
+        img: (p.image || p.img || "").trim() || "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80",
+      };
+    });
+    return [...sheetsFormatted, ...products.filter(p => !sheetsFormatted.find(s => s.id === p.id))];
+  }, [sheetsProducts]);
+
+  const switchTab = (t) => { setTab(t); setCatalogCategory(null); setEstimateTool("main"); setProfileSection("main"); setSearchOpen(false); setOpenProduct(null); };
 
   const inSubPage =
     (tab==="catalog" && catalogCategory!==null) ||
@@ -1776,14 +2154,14 @@ export default function App() {
   };
 
   const handleCatClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const btn = (e.target as HTMLElement).closest("[data-cat]");
-    if (btn) setCatalogCategory((btn as HTMLElement).dataset.cat!);
+    const btn = (e.target as HTMLElement).closest("[data-cat]") as HTMLElement | null;
+    if (btn) setCatalogCategory(btn?.dataset.cat || null);
   };
 
   const toggleFavorite = (id: number) => {
     setFavorites(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});
   };
-  const addToCart = (item: Product) => {
+  const addToCart = (item) => {
     setCartItems(prev=>{
       const ex=prev.find(ci=>ci.product.id===item.id);
       return ex?prev.map(ci=>ci.product.id===item.id?{...ci,qty:ci.qty+1}:ci):[...prev,{product:item,qty:1}];
@@ -1795,7 +2173,7 @@ export default function App() {
   const removeFromCart=(id:number)=>setCartItems(prev=>prev.filter(ci=>ci.product.id!==id));
   const cartCount=cartItems.reduce((s,ci)=>s+ci.qty,0);
 
-  const navItems: {key:Tab;icon:(a:boolean)=>React.ReactNode}[] = [
+  const navItems: { key: Tab; icon: (active: boolean) => React.ReactNode }[] = [
     {key:"home",icon:a=><NavHomeIcon active={a}/>},
     {key:"catalog",icon:a=><NavCatalogIcon active={a}/>},
     {key:"estimate",icon:a=><NavEstimateIcon active={a}/>},
@@ -1813,19 +2191,18 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen px-4 py-6 ${darkMode ? "bg-[#0b1120] text-white" : "bg-gray-100 text-gray-900"}`}>
+    <div className={`min-h-screen ${darkMode ? "dark bg-[#0b1120] text-white" : "light bg-[#f5f5f5] text-gray-900"}`}>
       <style>{`.hide-scrollbar::-webkit-scrollbar{display:none}.hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none}button{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}input{-webkit-tap-highlight-color:transparent}@keyframes fadeSlideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}.tab-enter{animation:fadeSlideIn 0.18s ease-out}.no-scrollbar::-webkit-scrollbar{display:none}.dark,.light{transition:background-color 0.25s ease,color 0.25s ease}.card-bg,.card-bg-raw,.topbar-bg,.navbar-bg,.input-bg,.screen-bg{transition:background-color 0.25s ease,border-color 0.25s ease}
 .dark{--btn-bg:rgba(255,255,255,0.1);--btn-border:rgba(255,255,255,0.05);--divider:rgba(255,255,255,0.08);--row-border:rgba(255,255,255,0.06)}
 .light{--btn-bg:rgba(0,0,0,0.05);--btn-border:rgba(0,0,0,0.1);--divider:rgba(0,0,0,0.08);--row-border:rgba(0,0,0,0.08)}.dark .card-bg{background:#182235}.light .card-bg{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .screen-bg{background:#0f172a}.light .screen-bg{background:#f5f5f5}.screen-bg{background:#0f172a}.dark .topbar-bg{background:#0f172a}.light .topbar-bg{background:#ffffff;border-bottom:1px solid #efefef}.dark .navbar-bg{background:#111827;border-top:1px solid rgba(255,255,255,0.1)}.light .navbar-bg{background:#ffffff;border-top:1px solid #efefef}.dark .input-bg{background:#0f172a}.light .input-bg{background:#f5f5f5}.card-bg-raw{background:#182235}.light .card-bg-raw{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .text-main{color:#ffffff}.light .text-main{color:#1a1a1a}.dark .text-sub{color:#94a3b8}.light .text-sub{color:#6b7280}.dark .section-header{color:#ffffff}.light .section-header{color:#1a1a1a}`}</style>
-      <div className="mx-auto max-w-[390px]">
-        <div data-theme={darkMode?"dark":"light"} className={`relative h-[844px] overflow-hidden rounded-[36px] border shadow-2xl ${darkMode ? "dark border-white/10 bg-[#0f172a]" : "light border-gray-200 bg-[#f5f5f5]"}`} style={{transition:"background-color 0.3s ease,border-color 0.3s ease"}}>
+      <div data-theme={darkMode?"dark":"light"} className={`relative min-h-screen screen-bg`}>
 
           {stage==="city" ? (
             <CityScreen onDone={c=>{setCity(c);setStage("splash");}}/>
           ) : stage==="splash" ? (
             <SplashScreen onDone={()=>setStage("main")}/>
           ) : searchOpen ? (
-            <SearchScreen onClose={()=>setSearchOpen(false)} onAdd={addToCart} favorites={favorites} onToggleFavorite={toggleFavorite} onOpenProduct={setOpenProduct}/>
+            <SearchScreen onClose={()=>setSearchOpen(false)} onAdd={addToCart} favorites={favorites} onToggleFavorite={toggleFavorite} onOpenProduct={setOpenProduct} allProducts={allProducts}/>
           ) : returnProduct ? (
             <ReturnScreen item={returnProduct} onBack={()=>setReturnProduct(null)}/>
           ) : showCheckout ? (
@@ -1846,19 +2223,19 @@ export default function App() {
               switchTab("home");
             }}/>
           ) : openProduct ? (
-            <ProductDetailScreen item={openProduct} onBack={()=>setOpenProduct(null)} onAdd={addToCart} onOpen={setOpenProduct} isFavorite={favorites.has(openProduct.id)} onToggleFavorite={toggleFavorite}/>
+            <ProductDetailScreen item={openProduct} onBack={()=>setOpenProduct(null)} onAdd={addToCart} onOpen={setOpenProduct} isFavorite={favorites.has(openProduct.id)} onToggleFavorite={toggleFavorite} sheetsOffers={sheetsOffers}/>
           ) : (
             <>
               {renderTopBar()}
-              <div className="hide-scrollbar h-[calc(100%-104px)] overflow-y-auto px-4 pb-2" onClick={handleCatClick}>
-                {tab==="home" && <HomeScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} onOpen={setOpenProduct}/>}
-                {tab==="catalog" && <CatalogScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} selectedCategory={catalogCategory} onOpen={setOpenProduct}/>}
+              <div className="hide-scrollbar overflow-y-auto px-4 pb-24" style={{minHeight:"calc(100vh - 104px)"}} onClick={handleCatClick}>
+                {tab==="home" && <HomeScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} onOpen={setOpenProduct} allProducts={allProducts}/>}
+                {tab==="catalog" && <CatalogScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} selectedCategory={catalogCategory} onOpen={setOpenProduct} allProducts={allProducts}/>}
                 {tab==="estimate" && <EstimateScreen tool={estimateTool} onOpenTool={setEstimateTool}/>}
-                {tab==="favorites" && <FavoritesScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} onOpen={setOpenProduct}/>}
+                {tab==="favorites" && <FavoritesScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} onOpen={setOpenProduct} allProducts={allProducts}/>}
                 {tab==="cart" && <CartScreen cartItems={cartItems} onChangeQty={changeQty} onSetQty={setQty} onRemove={removeFromCart} city={city} onCheckout={()=>setShowCheckout(true)}/>}
                 {tab==="profile" && <ProfileScreen section={profileSection} onOpenSection={setProfileSection} city={city} darkMode={darkMode} onToggleTheme={()=>setDarkMode(d=>!d)} onAdd={addToCart} onOpenProduct={setOpenProduct} placedOrders={placedOrders}/>}
               </div>
-              <div className="navbar-bg absolute bottom-0 left-0 right-0 z-50">
+              <div className="navbar-bg fixed bottom-0 left-0 right-0 z-50">
                 <div className="grid h-[72px] grid-cols-6">
                   {navItems.map(item=>(
                     <button key={item.key} onClick={()=>switchTab(item.key)} className="relative flex flex-col items-center justify-center gap-0.5">
@@ -1873,7 +2250,6 @@ export default function App() {
               </div>
             </>
           )}
-        </div>
       </div>
     </div>
   );
