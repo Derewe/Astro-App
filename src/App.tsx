@@ -672,14 +672,7 @@ function SplashScreen({ onDone }) {
 function TopBarMain({ setTab, onSearchOpen }) {
   return (
     <div className="topbar-bg sticky top-0 z-40 px-4 pb-3">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="flex items-center gap-2 flex-1">
-          <div className="flex flex-col">
-            <span className="text-main text-base font-bold leading-none">Строво</span>
-            <span className="text-sub text-[9px] leading-none tracking-wide">стройка без переплат</span>
-          </div>
-        </div>
-      </div>
+
       <div className="flex items-center gap-2">
         <button onClick={() => setTab("catalog")} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 light:bg-gray-100 border border-white/5 light:border-gray-200" style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}}>
           <NavCatalogIcon active={false} />
@@ -2082,6 +2075,7 @@ export default function App() {
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
   const [cartItems, setCartItems] = useState<{product:any; qty:number}[]>([]);
   const [placedOrders, setPlacedOrders] = useState<{id:string;date:string;name:string;unit:string;supplier:string;price:number;color:string;delivery:string}[]>([]);
+  const orderCounterRef = React.useRef(1043);
   const [catalogCategory, setCatalogCategory] = useState<string | null>(null);
   const [estimateTool, setEstimateTool] = useState<EstimateTool>("main");
   const [profileSection, setProfileSection] = useState<ProfileSection>("main");
@@ -2190,7 +2184,7 @@ export default function App() {
       <style>{`.hide-scrollbar::-webkit-scrollbar{display:none}.hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none}button{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}input{-webkit-tap-highlight-color:transparent}@keyframes fadeSlideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}.tab-enter{animation:fadeSlideIn 0.18s ease-out}.no-scrollbar::-webkit-scrollbar{display:none}.dark,.light{transition:background-color 0.25s ease,color 0.25s ease}.card-bg,.card-bg-raw,.topbar-bg,.navbar-bg,.input-bg,.screen-bg{transition:background-color 0.25s ease,border-color 0.25s ease}
 .dark{--btn-bg:rgba(255,255,255,0.1);--btn-border:rgba(255,255,255,0.05);--divider:rgba(255,255,255,0.08);--row-border:rgba(255,255,255,0.06)}
 .light{--btn-bg:rgba(0,0,0,0.05);--btn-border:rgba(0,0,0,0.1);--divider:rgba(0,0,0,0.08);--row-border:rgba(0,0,0,0.08)}.dark .card-bg{background:#182235}.light .card-bg{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .screen-bg{background:#0f172a}.light .screen-bg{background:#f5f5f5}.screen-bg{background:#0f172a}.dark .topbar-bg{background:#0f172a}.light .topbar-bg{background:#ffffff;border-bottom:1px solid #efefef}.dark .navbar-bg{background:#111827;border-top:1px solid rgba(255,255,255,0.1)}.light .navbar-bg{background:#ffffff;border-top:1px solid #efefef}.dark .input-bg{background:#0f172a}.light .input-bg{background:#f5f5f5}.card-bg-raw{background:#182235}.light .card-bg-raw{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .text-main{color:#ffffff}.light .text-main{color:#1a1a1a}.dark .text-sub{color:#94a3b8}.light .text-sub{color:#6b7280}.dark .section-header{color:#ffffff}.light .section-header{color:#1a1a1a}
-.topbar-bg{padding-top:max(12px,env(safe-area-inset-top))!important}.navbar-bg{padding-bottom:env(safe-area-inset-bottom)}`}</style>
+*::-webkit-scrollbar{display:none!important}*{scrollbar-width:none!important;-ms-overflow-style:none!important}.topbar-bg{padding-top:env(safe-area-inset-top)!important}.navbar-bg{padding-bottom:env(safe-area-inset-bottom)}`}</style>
       <div data-theme={darkMode?"dark":"light"} className={`relative min-h-screen screen-bg`}>
 
           {stage==="city" ? (
@@ -2203,10 +2197,12 @@ export default function App() {
             <ReturnScreen item={returnProduct} onBack={()=>setReturnProduct(null)}/>
           ) : showCheckout ? (
             <CheckoutScreen cartItems={cartItems} city={city} onBack={()=>setShowCheckout(false)} onSuccess={(deliveryMethod)=>{
-              const newOrders = cartItems.map((ci,i)=>({
-                id:`#${1043+i}`,
-                date:"Только что",
-                name:ci.product.name,
+              const now = new Date();
+              const dateStr = now.toLocaleString("ru-RU",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"});
+              const newOrders = cartItems.map((ci)=>({
+                id:`#${++orderCounterRef.current}`,
+                date:dateStr,
+                name:`${ci.product.name} · ${ci.product.unit}`,
                 unit:ci.product.unit,
                 supplier:ci.product.supplier,
                 price:ci.product.price*ci.qty,
@@ -2216,7 +2212,8 @@ export default function App() {
               setPlacedOrders(prev=>[...newOrders,...prev]);
               setShowCheckout(false);
               setCartItems([]);
-              switchTab("home");
+              switchTab("profile");
+              setTimeout(()=>setProfileSection("orders"),0);
             }}/>
           ) : openProduct ? (
             <ProductDetailScreen item={openProduct} onBack={()=>setOpenProduct(null)} onAdd={addToCart} onOpen={setOpenProduct} isFavorite={favorites.has(openProduct.id)} onToggleFavorite={toggleFavorite} sheetsOffers={sheetsOffers}/>
