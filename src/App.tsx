@@ -536,17 +536,17 @@ function CityScreen({ onDone }) {
   };
 
   return (
-    <div className="screen-bg flex flex-col h-full px-5 pt-10">
-      <div className="flex flex-col items-center gap-3 mb-8">
-        <StrovoLogo size={56} />
+    <div className="screen-bg flex flex-col px-5" style={{height:"100dvh",paddingTop:"max(48px, env(safe-area-inset-top))",paddingBottom:"max(24px, env(safe-area-inset-bottom))"}}>
+      <div className="flex flex-col items-center gap-3 mb-6">
+        <StrovoLogo size={52} />
         <div className="text-main text-2xl font-bold">Ваш город?</div>
         <div className="text-sm text-slate-400 text-center">Покажем актуальные цены и доставку</div>
       </div>
-      <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 mb-4 h-12">
+      <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 mb-4 h-12 shrink-0">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="#64748b" strokeWidth="1.6"/><path d="M10 10l3 3" stroke="#64748b" strokeWidth="1.6" strokeLinecap="round"/></svg>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск города..." className="flex-1 bg-transparent text-main text-base outline-none placeholder:text-sub"/>
       </div>
-      <div className="hide-scrollbar flex-1 overflow-y-auto space-y-2 pb-8">
+      <div className="hide-scrollbar flex-1 overflow-y-auto space-y-2" style={{overscrollBehavior:"contain"}}>
         {filtered.map(city => {
           const active = city === "Оренбург";
           return (
@@ -612,10 +612,10 @@ function SplashScreen({ onDone }) {
   const isWelcome = current.type === "welcome";
 
   return (
-    <div className="screen-bg" style={{height:"100dvh",display:"flex",flexDirection:"column"}}>
+    <div className="screen-bg" style={{height:"100dvh",display:"flex",flexDirection:"column",paddingTop:"env(safe-area-inset-top)",paddingBottom:"env(safe-area-inset-bottom)"}}>
 
       {/* Кнопка пропустить */}
-      <div style={{display:"flex",justifyContent:"flex-end",padding:"40px 24px 0",minHeight:"60px"}}>
+      <div style={{display:"flex",justifyContent:"flex-end",padding:"16px 24px 0",minHeight:"52px"}}>
         {!isWelcome && slide < slides.length - 1 && (
           <button onClick={onDone} className="text-sm text-slate-500">Пропустить</button>
         )}
@@ -671,10 +671,9 @@ function SplashScreen({ onDone }) {
 // -- Шапки ---------------------------------------------------------------------
 function TopBarMain({ setTab, onSearchOpen }) {
   return (
-    <div className="topbar-bg sticky top-0 z-40 px-4 pt-3 pb-3">
+    <div className="topbar-bg sticky top-0 z-40 px-4 pb-3">
       <div className="flex items-center gap-2 mb-3">
         <div className="flex items-center gap-2 flex-1">
-          <StrovoLogo size={28} />
           <div className="flex flex-col">
             <span className="text-main text-base font-bold leading-none">Строво</span>
             <span className="text-sub text-[9px] leading-none tracking-wide">стройка без переплат</span>
@@ -699,7 +698,7 @@ function TopBarMain({ setTab, onSearchOpen }) {
 
 function TopBarInner({ title, onBack, showSearch = true }) {
   return (
-    <div className="topbar-bg sticky top-0 z-40 px-4 pt-3 pb-3">
+    <div className="topbar-bg sticky top-0 z-40 px-4 pb-3">
       <div className="mb-1 flex items-center justify-between px-1">
         
         
@@ -723,7 +722,7 @@ function TopBarInner({ title, onBack, showSearch = true }) {
 
 function TopBarTitle({ title, onSearchOpen }) {
   return (
-    <div className="topbar-bg sticky top-0 z-40 px-4 pt-3 pb-3">
+    <div className="topbar-bg sticky top-0 z-40 px-4 pb-3">
       <div className="mb-1 flex items-center justify-between px-1">
         
         
@@ -1292,25 +1291,21 @@ function CartScreen({ cartItems, onChangeQty, onSetQty, onRemove, city, onChecko
   return (
     <div className="space-y-4 pb-24">
       {/* Адрес доставки */}
-      {cartItems.length > 0 && (
-        <>
-          <button onClick={() => setShowCartAddrPicker(true)} className="w-full flex items-center gap-3 rounded-[20px] card-bg-raw px-4 py-3">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#FACC15" strokeWidth="1.6"/><circle cx="12" cy="9" r="2.5" stroke="#FACC15" strokeWidth="1.4"/></svg>
-            <div className="flex-1 text-left">
-              <div className="text-xs text-slate-500">Доставка по адресу</div>
-              <div className="text-main text-sm font-medium">{cartAddress}</div>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
-          {showCartAddrPicker && (
-            <AddressPickerModal
-              city={city}
-              currentAddress={cartAddress}
-              onSelect={(addr) => setCartAddress(addr)}
-              onClose={() => setShowCartAddrPicker(false)}
-            />
-          )}
-        </>
+      <button onClick={() => setShowCartAddrPicker(true)} className="w-full flex items-center gap-3 rounded-[20px] card-bg-raw px-4 py-3">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#FACC15" strokeWidth="1.6"/><circle cx="12" cy="9" r="2.5" stroke="#FACC15" strokeWidth="1.4"/></svg>
+        <div className="flex-1 text-left">
+          <div className="text-xs text-slate-500">Доставка по адресу</div>
+          <div className="text-main text-sm font-medium">{cartAddress}</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
+      {showCartAddrPicker && (
+        <AddressPickerModal
+          city={city}
+          currentAddress={cartAddress}
+          onSelect={(addr) => setCartAddress(addr)}
+          onClose={() => setShowCartAddrPicker(false)}
+        />
       )}
       {cartItems.length===0 ? (
         <div className="rounded-[24px] card-bg-raw p-8 text-center mt-4 flex flex-col items-center gap-4">
@@ -2194,7 +2189,8 @@ export default function App() {
     <div className={`min-h-screen ${darkMode ? "dark bg-[#0b1120] text-white" : "light bg-[#f5f5f5] text-gray-900"}`}>
       <style>{`.hide-scrollbar::-webkit-scrollbar{display:none}.hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none}button{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}input{-webkit-tap-highlight-color:transparent}@keyframes fadeSlideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}.tab-enter{animation:fadeSlideIn 0.18s ease-out}.no-scrollbar::-webkit-scrollbar{display:none}.dark,.light{transition:background-color 0.25s ease,color 0.25s ease}.card-bg,.card-bg-raw,.topbar-bg,.navbar-bg,.input-bg,.screen-bg{transition:background-color 0.25s ease,border-color 0.25s ease}
 .dark{--btn-bg:rgba(255,255,255,0.1);--btn-border:rgba(255,255,255,0.05);--divider:rgba(255,255,255,0.08);--row-border:rgba(255,255,255,0.06)}
-.light{--btn-bg:rgba(0,0,0,0.05);--btn-border:rgba(0,0,0,0.1);--divider:rgba(0,0,0,0.08);--row-border:rgba(0,0,0,0.08)}.dark .card-bg{background:#182235}.light .card-bg{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .screen-bg{background:#0f172a}.light .screen-bg{background:#f5f5f5}.screen-bg{background:#0f172a}.dark .topbar-bg{background:#0f172a}.light .topbar-bg{background:#ffffff;border-bottom:1px solid #efefef}.dark .navbar-bg{background:#111827;border-top:1px solid rgba(255,255,255,0.1)}.light .navbar-bg{background:#ffffff;border-top:1px solid #efefef}.dark .input-bg{background:#0f172a}.light .input-bg{background:#f5f5f5}.card-bg-raw{background:#182235}.light .card-bg-raw{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .text-main{color:#ffffff}.light .text-main{color:#1a1a1a}.dark .text-sub{color:#94a3b8}.light .text-sub{color:#6b7280}.dark .section-header{color:#ffffff}.light .section-header{color:#1a1a1a}`}</style>
+.light{--btn-bg:rgba(0,0,0,0.05);--btn-border:rgba(0,0,0,0.1);--divider:rgba(0,0,0,0.08);--row-border:rgba(0,0,0,0.08)}.dark .card-bg{background:#182235}.light .card-bg{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .screen-bg{background:#0f172a}.light .screen-bg{background:#f5f5f5}.screen-bg{background:#0f172a}.dark .topbar-bg{background:#0f172a}.light .topbar-bg{background:#ffffff;border-bottom:1px solid #efefef}.dark .navbar-bg{background:#111827;border-top:1px solid rgba(255,255,255,0.1)}.light .navbar-bg{background:#ffffff;border-top:1px solid #efefef}.dark .input-bg{background:#0f172a}.light .input-bg{background:#f5f5f5}.card-bg-raw{background:#182235}.light .card-bg-raw{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .text-main{color:#ffffff}.light .text-main{color:#1a1a1a}.dark .text-sub{color:#94a3b8}.light .text-sub{color:#6b7280}.dark .section-header{color:#ffffff}.light .section-header{color:#1a1a1a}
+.topbar-bg{padding-top:max(12px,env(safe-area-inset-top))!important}.navbar-bg{padding-bottom:env(safe-area-inset-bottom)}`}</style>
       <div data-theme={darkMode?"dark":"light"} className={`relative min-h-screen screen-bg`}>
 
           {stage==="city" ? (
