@@ -479,35 +479,44 @@ const NavHeartIcon = ({ active }) => (
       fill={active ? "#FACC15" : "none"} stroke={active ? "#FACC15" : "#64748b"} strokeWidth="1.8" strokeLinejoin="round" />
   </svg>
 );
-const NavCartIcon = ({ active, count = 0 }) => (
-  <div className="relative flex items-center justify-center w-5 h-5">
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M2 3h2.5l2 8h9l1.8-5.5H6.5" stroke={active || count>0 ? "#FACC15" : "#64748b"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="8.5" cy="15.5" r="1.5" fill={active || count>0 ? "#FACC15" : "#64748b"} />
-      <circle cx="14" cy="15.5" r="1.5" fill={active || count>0 ? "#FACC15" : "#64748b"} />
-    </svg>
-    {count > 0 && (
-      <div style={{
-        position: "absolute",
-        top: -5,
-        right: -6,
-        minWidth: 14,
-        height: 14,
-        padding: "0 3px",
-        borderRadius: 7,
-        background: "#FACC15",
-        color: "#000",
-        fontSize: 9,
-        fontWeight: 700,
-        lineHeight: "14px",
-        textAlign: "center",
-        whiteSpace: "nowrap",
-      }}>
-        {count > 99 ? "99+" : count}
-      </div>
-    )}
-  </div>
-);
+const NavCartIcon = ({ active, count = 0 }) => {
+  const isOver99 = count > 99;
+  const label = isOver99 ? "99" : String(count);
+  // Badge width adapts: 1 digit=14, 2 digits=18, "99"=18
+  const badgeW = label.length === 1 ? 14 : 18;
+  return (
+    <div style={{position:"relative", width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center"}}>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M2 3h2.5l2 8h9l1.8-5.5H6.5" stroke={active || count>0 ? "#FACC15" : "#64748b"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="8.5" cy="15.5" r="1.5" fill={active || count>0 ? "#FACC15" : "#64748b"} />
+        <circle cx="14" cy="15.5" r="1.5" fill={active || count>0 ? "#FACC15" : "#64748b"} />
+      </svg>
+      {count > 0 && (
+        <div style={{
+          position: "absolute",
+          top: -3,
+          right: -4,
+          width: badgeW,
+          height: 14,
+          borderRadius: 7,
+          background: "#FACC15",
+          color: "#000",
+          fontSize: 8,
+          fontWeight: 800,
+          lineHeight: "14px",
+          textAlign: "center",
+          letterSpacing: "-0.3px",
+          fontFamily: "system-ui, sans-serif",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}>
+          {label}{isOver99 && <span style={{fontSize:6, marginLeft:0.5, lineHeight:"14px"}}>+</span>}
+        </div>
+      )}
+    </div>
+  );
+};
 const NavProfileIcon = ({ active }) => {
   const c = active ? "#FACC15" : "#64748b";
   return (
@@ -952,11 +961,12 @@ function SearchScreen({ onClose, onAdd, favorites, onToggleFavorite, onOpenProdu
 }
 
 // -- Product Card --------------------------------------------------------------
-function ProductCard({ item, isFavorite, onToggleFavorite, onAdd, onOpen }) {
+function ProductCard({ item, isFavorite, onToggleFavorite, onAdd, onOpen, index = 0 }) {
   const [imgError, setImgError] = React.useState(false);
   const hasImg = item.img && !imgError;
   return (
-    <div className="card-bg overflow-hidden rounded-[24px] shadow-sm">
+    <div className="product-card-wrap card-bg overflow-hidden rounded-[24px] shadow-sm"
+      style={{animationDelay:`${index * 60}ms`}}>
       <button onClick={() => onOpen(item)} className="w-full text-left">
         <div className={`relative h-32 overflow-hidden ${!hasImg ? `bg-gradient-to-br ${item.color}` : ""}`}>
           {hasImg ? (
@@ -1003,7 +1013,7 @@ function HomeProductGrid({ favorites, onToggleFavorite, onAdd, onOpen }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
-        {visible.map(item=><ProductCard key={item.id} item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/>)}
+        {visible.map((item,i)=><div key={item.id} className="anim-fadeUp" style={{animationDelay:`${i*60}ms`}}><ProductCard item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/></div>)}
       </div>
       {hasMore && (
         <button onClick={()=>setVisibleCount(v=>Math.min(v+8, products.length))}
@@ -1015,19 +1025,100 @@ function HomeProductGrid({ favorites, onToggleFavorite, onAdd, onOpen }) {
   );
 }
 
+// -- Banner Carousel ----------------------------------------------------------
+const BANNERS = [
+  { gradient:"from-[#1a2f4a] via-[#1e3a5f] to-[#243a6b]", tag:"🔥 Акция", title:"Скидки на\nстройматериалы", sub:"Сравнивай поставщиков и находи выгодные предложения", icon:"🏗️" },
+  { gradient:"from-[#1a3020] via-[#1f3d25] to-[#1a4a2e]", tag:"⚡ Быстрая доставка", title:"Получи завтра\nиз Оренбурга", sub:"Более 50 поставщиков готовы отгрузить уже сегодня", icon:"🚚" },
+  { gradient:"from-[#3c2215] via-[#5b3018] to-[#7a4021]", tag:"💰 Экономия", title:"Алгоритм Строво\nнайдёт лучшую цену", sub:"Автоматически сравниваем предложения по 4 параметрам", icon:"📊" },
+];
+
+function BannerCarousel() {
+  const [current, setCurrent] = React.useState(0);
+  const [prev, setPrev] = React.useState<number|null>(null);
+  const [dir, setDir] = React.useState<1|-1>(1); // 1=left, -1=right
+  const touchStartX = React.useRef<number|null>(null);
+  const animating = React.useRef(false);
+
+  const goTo = (idx: number, direction?: 1|-1) => {
+    if(animating.current) return;
+    animating.current = true;
+    const d = direction ?? (idx > current ? 1 : -1);
+    setDir(d);
+    setPrev(current);
+    setCurrent(idx);
+    setTimeout(() => { setPrev(null); animating.current = false; }, 500);
+  };
+
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      setCurrent(c => {
+        const next = (c+1) % BANNERS.length;
+        if(!animating.current) { setDir(1); setPrev(c); setTimeout(()=>setPrev(null),500); }
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(t);
+  }, []);
+
+  const b = BANNERS[current];
+  const bp = prev !== null ? BANNERS[prev] : null;
+
+  return (
+    <div className="anim-fadeUp" style={{animationDelay:"0ms"}}>
+      <div
+        style={{position:"relative", overflow:"hidden", borderRadius:24, minHeight:140}}
+        onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
+        onTouchEnd={e => {
+          if(touchStartX.current===null) return;
+          const dx = e.changedTouches[0].clientX - touchStartX.current;
+          if(dx < -40) goTo((current+1)%BANNERS.length, 1);
+          else if(dx > 40) goTo((current-1+BANNERS.length)%BANNERS.length, -1);
+          touchStartX.current = null;
+        }}
+      >
+        {/* Prev slide — exits */}
+        {bp && (
+          <div key={`prev-${prev}`} className={`bg-gradient-to-r ${bp.gradient}`}
+            style={{position:"absolute",inset:0,padding:16,
+              animation:`slideOut${dir>0?"Left":"Right"} 0.50s cubic-bezier(0.4,0,0.2,1) both`}}>
+            <div className="inline-block rounded-xl bg-black/35 px-3 py-1 text-xs font-semibold text-white">{bp.tag}</div>
+            <div className="mt-2 text-xl font-extrabold leading-tight text-white whitespace-pre-line">{bp.title}</div>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-80">{bp.icon}</div>
+          </div>
+        )}
+        {/* Current slide — enters */}
+        <div key={`cur-${current}`} className={`bg-gradient-to-r ${b.gradient}`}
+          style={{position:"relative",padding:16,minHeight:140,
+            animation:prev!==null?`slideIn${dir>0?"Right":"Left"} 0.50s cubic-bezier(0.4,0,0.2,1) both`:"none"}}>
+          <div className="inline-block rounded-xl bg-black/35 px-3 py-1 text-xs font-semibold text-white">{b.tag}</div>
+          <div className="mt-2 text-xl font-extrabold leading-tight text-white whitespace-pre-line">{b.title}</div>
+          <div className="mt-1.5 text-xs text-slate-200 max-w-[200px]">{b.sub}</div>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-80">{b.icon}</div>
+        </div>
+      </div>
+      {/* Dots below */}
+      <div style={{display:"flex", justifyContent:"center", alignItems:"center", gap:6, marginTop:8}}>
+        {BANNERS.map((_,i) => (
+          <button key={i} onClick={() => goTo(i, i>current?1:-1)} style={{
+            width: i===current ? 20 : 6, height: 6, borderRadius: 3,
+            background: i===current ? "#FACC15" : "rgba(150,150,150,0.35)",
+            transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)",
+            border:"none", padding:0, flexShrink:0, cursor:"pointer",
+          }}/>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HomeScreen({ favorites, onToggleFavorite, onAdd, onOpen, allProducts: ap }) {
   const productList = ap || products;
   return (
     <div className="tab-enter space-y-4 pb-24">
-      <div className="overflow-hidden rounded-[24px] bg-gradient-to-r from-[#3c2f15] via-[#5b451a] to-[#7a5d21] p-4">
-        <div className="inline-block rounded-xl bg-black/35 px-3 py-1 text-sm font-semibold text-white">Реклама</div>
-        <div className="mt-3 max-w-[220px] text-2xl font-extrabold leading-tight text-white">Скидки на<br/>стройматериалы</div>
-        <div className="mt-2 text-sm text-slate-100">Сравнивай поставщиков и находи выгодные предложения</div>
-        <button className="mt-4 rounded-full bg-white/20 px-4 py-2.5 text-sm font-semibold text-white">Смотреть</button>
-      </div>
+      <BannerCarousel/>
       <div className="text-main rounded-full border-2 border-current px-4 py-2 text-xl font-medium w-fit">Для вас</div>
       <div className="grid grid-cols-2 gap-3">
-        {productList.slice(0,6).map(item=><ProductCard key={item.id} item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/>)}
+        {productList.slice(0,6).map((item,i)=><div key={item.id} className="anim-fadeUp" style={{animationDelay:`${120+i*60}ms`}}><ProductCard item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/></div>)}
       </div>
     </div>
   );
@@ -2184,7 +2275,7 @@ export default function App() {
       <style>{`.hide-scrollbar::-webkit-scrollbar{display:none}.hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none}button{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}input{-webkit-tap-highlight-color:transparent}@keyframes fadeSlideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}.tab-enter{animation:fadeSlideIn 0.18s ease-out}.no-scrollbar::-webkit-scrollbar{display:none}.dark,.light{transition:background-color 0.25s ease,color 0.25s ease}.card-bg,.card-bg-raw,.topbar-bg,.navbar-bg,.input-bg,.screen-bg{transition:background-color 0.25s ease,border-color 0.25s ease}
 .dark{--btn-bg:rgba(255,255,255,0.1);--btn-border:rgba(255,255,255,0.05);--divider:rgba(255,255,255,0.08);--row-border:rgba(255,255,255,0.06)}
 .light{--btn-bg:rgba(0,0,0,0.05);--btn-border:rgba(0,0,0,0.1);--divider:rgba(0,0,0,0.08);--row-border:rgba(0,0,0,0.08)}.dark .card-bg{background:#182235}.light .card-bg{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .screen-bg{background:#0f172a}.light .screen-bg{background:#f5f5f5}.screen-bg{background:#0f172a}.dark .topbar-bg{background:#0f172a}.light .topbar-bg{background:#ffffff;border-bottom:1px solid #efefef}.dark .navbar-bg{background:#111827;border-top:1px solid rgba(255,255,255,0.1)}.light .navbar-bg{background:#ffffff;border-top:1px solid #efefef}.dark .input-bg{background:#0f172a}.light .input-bg{background:#f5f5f5}.card-bg-raw{background:#182235}.light .card-bg-raw{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .text-main{color:#ffffff}.light .text-main{color:#1a1a1a}.dark .text-sub{color:#94a3b8}.light .text-sub{color:#6b7280}.dark .section-header{color:#ffffff}.light .section-header{color:#1a1a1a}
-*::-webkit-scrollbar{display:none!important}*{scrollbar-width:none!important;-ms-overflow-style:none!important}.topbar-bg{padding-top:env(safe-area-inset-top)!important}.navbar-bg{padding-bottom:env(safe-area-inset-bottom)}`}</style>
+*::-webkit-scrollbar{display:none!important}*{scrollbar-width:none!important;-ms-overflow-style:none!important}.topbar-bg{padding-top:env(safe-area-inset-top)!important}.navbar-bg{padding-bottom:env(safe-area-inset-bottom)}@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}@keyframes slideInLeft{from{transform:translateX(-100%)}to{transform:translateX(0)}}@keyframes slideOutLeft{from{transform:translateX(0)}to{transform:translateX(-100%)}}@keyframes slideOutRight{from{transform:translateX(0)}to{transform:translateX(100%)}}@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes scaleIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}.anim-fadeUp{animation:fadeUp 0.3s ease-out both}.anim-fadeIn{animation:fadeIn 0.25s ease-out both}.anim-scaleIn{animation:scaleIn 0.2s ease-out both}.product-card-wrap{transition:transform 0.18s ease,box-shadow 0.18s ease,border-color 0.18s ease}.product-card-wrap:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(250,204,21,0.12)}.product-card-wrap:active{transform:scale(0.98)}.banner-slide{transition:transform 0.4s cubic-bezier(0.4,0,0.2,1),opacity 0.4s ease}`}</style>
       <div data-theme={darkMode?"dark":"light"} className={`relative min-h-screen screen-bg`}>
 
           {stage==="city" ? (
@@ -2220,7 +2311,7 @@ export default function App() {
           ) : (
             <>
               {renderTopBar()}
-              <div className="hide-scrollbar overflow-y-auto px-4 pb-24" style={{minHeight:"calc(100vh - 104px)"}} onClick={handleCatClick}>
+              <div key={tab} className="hide-scrollbar overflow-y-auto px-4 pb-24 anim-fadeIn" style={{minHeight:"calc(100vh - 104px)"}} onClick={handleCatClick}>
                 {tab==="home" && <HomeScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} onOpen={setOpenProduct} allProducts={allProducts}/>}
                 {tab==="catalog" && <CatalogScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} selectedCategory={catalogCategory} onOpen={setOpenProduct} allProducts={allProducts}/>}
                 {tab==="estimate" && <EstimateScreen tool={estimateTool} onOpenTool={setEstimateTool}/>}
