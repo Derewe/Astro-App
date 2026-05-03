@@ -521,10 +521,8 @@ const NavProfileIcon = ({ active }) => {
   const c = active ? "#FACC15" : "#64748b";
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M2 20 C2 14 5 12 10 12 C15 12 18 14 18 20Z" fill={c}/>
-      <circle cx="10" cy="10" r="3.2" fill={c}/>
-      <path d="M7.2 10 Q7.2 5 10 5 Q12.8 5 12.8 10Z" fill={c}/>
-      <rect x="5.5" y="9.3" width="9" height="1.4" rx="0.7" fill={c}/>
+      <circle cx="10" cy="7" r="3.5" fill={c}/>
+      <path d="M3 18c0-4.5 3-7 7-7s7 2.5 7 7" fill={c}/>
     </svg>
   );
 };
@@ -680,7 +678,7 @@ function SplashScreen({ onDone }) {
 // -- Шапки ---------------------------------------------------------------------
 function TopBarMain({ setTab, onSearchOpen }) {
   return (
-    <div className="topbar-bg sticky top-0 z-40 px-4 pb-3">
+    <div className="topbar-bg sticky top-0 z-40 px-4 pb-3" style={{paddingBottom:12}}>
 
       <div className="flex items-center gap-2">
         <button onClick={() => setTab("catalog")} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 light:bg-gray-100 border border-white/5 light:border-gray-200" style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}}>
@@ -724,7 +722,7 @@ function TopBarInner({ title, onBack, showSearch = true }) {
 
 function TopBarTitle({ title, onSearchOpen }) {
   return (
-    <div className="topbar-bg sticky top-0 z-40 px-4 pb-3">
+    <div className="topbar-bg sticky top-0 z-40 px-4" style={{paddingBottom:12}}>
       <div className="mb-1 flex items-center justify-between px-1">
         
         
@@ -951,7 +949,7 @@ function SearchScreen({ onClose, onAdd, favorites, onToggleFavorite, onOpenProdu
         {query.trim() === "" && <div className="mt-8 text-center text-slate-500 text-sm">Введите название товара или категорию</div>}
         {query.trim() !== "" && results.length === 0 && <div className="mt-8 text-center text-slate-500 text-sm">Ничего не найдено по запросу "{query}"</div>}
         {results.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 mt-2">
+          <div className="grid grid-cols-2 gap-3">
             {results.map(item => <ProductCard key={item.id} item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpenProduct}/>)}
           </div>
         )}
@@ -1114,9 +1112,9 @@ function BannerCarousel() {
 function HomeScreen({ favorites, onToggleFavorite, onAdd, onOpen, allProducts: ap }) {
   const productList = ap || products;
   return (
-    <div className="tab-enter space-y-4 pb-24">
+    <div className="tab-enter pb-4" style={{display:"flex",flexDirection:"column",gap:16}}>
       <BannerCarousel/>
-      <div className="text-main rounded-full border-2 border-current px-4 py-2 text-xl font-medium w-fit">Для вас</div>
+      <div className="text-main rounded-full border-2 border-current px-3 py-1 text-sm font-medium w-fit">Для вас</div>
       <div className="grid grid-cols-2 gap-3">
         {productList.slice(0,6).map((item,i)=><div key={item.id} className="anim-fadeUp" style={{animationDelay:`${120+i*60}ms`}}><ProductCard item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/></div>)}
       </div>
@@ -1190,7 +1188,7 @@ function CatalogScreen({ favorites, onToggleFavorite, onAdd, selectedCategory, o
 
   if (selectedCategory) {
     return (
-      <div className="space-y-3 pb-24">
+      <div style={{display:"flex",flexDirection:"column",gap:12,paddingBottom:96}}>
         {/* Фильтры - стиль Каспи */}
         <div className="flex items-center gap-2 pb-1" style={{overflowX:"auto",WebkitOverflowScrolling:"touch",msOverflowStyle:"none",scrollbarWidth:"none"}}>
           {/* Сортировка */}
@@ -1242,7 +1240,7 @@ function CatalogScreen({ favorites, onToggleFavorite, onAdd, selectedCategory, o
     );
   }
   return (
-    <div className="space-y-4 pb-24">
+    <div style={{display:"flex",flexDirection:"column",gap:16,paddingBottom:96,paddingTop:0}}>
       <div className="card-bg rounded-[24px] p-4">
         <div className="text-main text-xl font-bold">Каталог</div>
         <div className="text-sub mt-1 text-sm">Разделы стройматериалов и оборудования</div>
@@ -1282,7 +1280,7 @@ function EstimateScreen({ tool, onOpenTool }) {
   }),[vals]);
   const R=({text})=><div className="input-bg mt-4 rounded-[20px] p-4 text-lg font-bold text-yellow-400">{text}</div>;
   if (tool==="main") return (
-    <div className="space-y-4 pb-24">
+    <div style={{display:"flex",flexDirection:"column",gap:12,paddingBottom:96}}>
       <div className="card-bg rounded-[24px] p-4"><div className="text-main text-xl font-bold">Сметный расчёт</div><div className="text-sub mt-1 text-sm">Выберите калькулятор</div></div>
       <div className="grid grid-cols-2 gap-3">
         {estimateCards.map(card=>(
@@ -1303,14 +1301,14 @@ function EstimateScreen({ tool, onOpenTool }) {
     drywall:<><div className="grid grid-cols-2 gap-3"><NumInput label="Площадь, кв.м" value={vals.drywallA} onChange={set("drywallA")}/><NumInput label="Площадь листа, кв.м" value={vals.sheetA} onChange={set("sheetA")}/></div>{results.drywall&&<R text={`Нужно листов: ${results.drywall} шт`}/>}</>,
     laminate:<><div className="grid grid-cols-2 gap-3"><NumInput label="Площадь, кв.м" value={vals.lamA} onChange={set("lamA")}/><NumInput label="Площадь упаковки, кв.м" value={vals.packA} onChange={set("packA")}/></div>{results.laminate&&<R text={`Нужно упаковок: ${results.laminate} шт`}/>}</>,
   };
-  return <div className="space-y-4 pb-24"><div className="card-bg rounded-[24px] p-4">{forms[tool]}</div></div>;
+  return <div style={{display:"flex",flexDirection:"column",gap:16,paddingBottom:96}}><div className="card-bg rounded-[24px] p-4">{forms[tool]}</div></div>;
 }
 
 function FavoritesScreen({ favorites, onToggleFavorite, onAdd, onOpen, allProducts: ap }) {
   const productList = ap || products;
   const items = productList.filter(p=>favorites.has(p.id));
   return (
-    <div className="space-y-4 pb-24">
+    <div style={{display:"flex",flexDirection:"column",gap:12,paddingBottom:96}}>
       {items.length===0 ? (
         <div className="rounded-[24px] card-bg-raw p-8 text-center mt-4 flex flex-col items-center gap-4">
           <svg width="56" height="56" viewBox="0 0 24 24" fill="none"><path d="M12 20S4 14 4 8a4.5 4.5 0 019 0 4.5 4.5 0 019 0c0 6-8 12-8 12z" stroke="#FACC15" strokeWidth="1.5" strokeLinejoin="round" fill="none"/></svg>
@@ -1373,7 +1371,7 @@ function CartScreen({ cartItems, onChangeQty, onSetQty, onRemove, city, onChecko
   const total = useMemo(()=>cartItems.reduce((s,ci)=>s+ci.product.price*ci.qty,0),[cartItems]);
   const delivery = cartItems.length?1200:0;
   return (
-    <div className="space-y-4 pb-24">
+    <div style={{display:"flex",flexDirection:"column",gap:16,paddingBottom:96}}>
       {/* Адрес доставки */}
       <button onClick={() => setShowCartAddrPicker(true)} className="w-full flex items-center gap-3 rounded-[20px] card-bg-raw px-4 py-3">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#FACC15" strokeWidth="1.6"/><circle cx="12" cy="9" r="2.5" stroke="#FACC15" strokeWidth="1.4"/></svg>
@@ -1444,7 +1442,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
       o.name.toLowerCase().includes(q) || o.id.includes(q) || o.date.toLowerCase().includes(q) || o.supplier.toLowerCase().includes(q)
     ) : allOrders;
     return (
-    <div className="space-y-3 pb-24">
+    <div style={{display:"flex",flexDirection:"column",gap:16,paddingBottom:96}}>
       <div className="flex items-center gap-2 input-bg rounded-2xl px-4 h-11">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="#64748b" strokeWidth="1.6"/><path d="M10 10l3 3" stroke="#64748b" strokeWidth="1.6" strokeLinecap="round"/></svg>
         <input value={orderSearch} onChange={e=>setOrderSearch(e.target.value)} placeholder="Поиск по товару, дате или номеру..." className="flex-1 bg-transparent text-main text-sm outline-none placeholder:text-sub"/>
@@ -1516,7 +1514,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
       ? products.filter(p => p.name.toLowerCase().includes(purchSearch.toLowerCase()) || p.category.toLowerCase().includes(purchSearch.toLowerCase()))
       : products.slice(0,6);
     return (
-    <div className="space-y-3 pb-24">
+    <div style={{display:"flex",flexDirection:"column",gap:12,paddingBottom:96}}>
       {/* Поиск */}
       <div className="flex items-center gap-2 input-bg rounded-2xl px-4 h-11">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="#64748b" strokeWidth="1.6"/><path d="M10 10l3 3" stroke="#64748b" strokeWidth="1.6" strokeLinecap="round"/></svg>
@@ -1562,7 +1560,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
     const [priceAlerts, setPriceAlerts] = useState(true);
     const [orderUpdates, setOrderUpdates] = useState(true);
     return (
-      <div className="space-y-3 pb-24">
+      <div style={{display:"flex",flexDirection:"column",gap:12,paddingBottom:96}}>
         {/* Профиль */}
         <div className="card-bg rounded-[20px] p-4 space-y-3">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Личные данные</div>
@@ -1618,7 +1616,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
   }
 
   if (section==="history") return (
-    <div className="space-y-3 pb-24">
+    <div style={{display:"flex",flexDirection:"column",gap:12,paddingBottom:96}}>
       <div className="text-sub text-xs px-1">Недавно просмотренные товары</div>
       {products.map((p,i)=>(
         <button key={p.id} onClick={()=>onOpenProduct(p)} className="card-bg-raw w-full rounded-[20px] p-4 flex items-center gap-3 text-left">
@@ -1642,7 +1640,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
     </div>
   );
   return (
-    <div className="space-y-4 pb-24">
+    <div style={{display:"flex",flexDirection:"column",gap:12,paddingBottom:96}}>
       <div className="card-bg rounded-[24px] p-4">
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-400/10">
@@ -1821,7 +1819,7 @@ function ReturnScreen({ item, onBack }) {
   return (
     <div className="flex flex-col h-full">
       <TopBarInner title="Возврат товара" onBack={onBack} showSearch={false}/>
-      <div className="hide-scrollbar flex-1 overflow-y-auto px-4 pb-24 space-y-4 pt-2">
+      <div className="hide-scrollbar flex-1 overflow-y-auto px-4 pb-24 pt-3" style={{display:"flex",flexDirection:"column",gap:12}}>
         {/* Товар */}
         <div className="rounded-[20px] card-bg-raw p-4 flex items-center gap-3">
           <div className={`h-14 w-14 shrink-0 rounded-2xl bg-gradient-to-br ${item.color}`}/>
@@ -2070,7 +2068,7 @@ function CheckoutScreen({ cartItems, city, onBack, onSuccess }) {
   return (
     <div className="flex flex-col h-full">
       <TopBarInner title="Оформление заказа" onBack={onBack} showSearch={false}/>
-      <div className="hide-scrollbar flex-1 overflow-y-auto px-4 pb-24 space-y-4 pt-2">
+      <div className="hide-scrollbar flex-1 overflow-y-auto px-4 pb-24 pt-3" style={{display:"flex",flexDirection:"column",gap:12}}>
 
         {/* Адрес */}
         <button onClick={()=>setShowAddrPicker(true)} className="card-bg w-full rounded-[20px] p-4 flex items-center gap-3 text-left">
@@ -2311,7 +2309,7 @@ export default function App() {
           ) : (
             <>
               {renderTopBar()}
-              <div key={tab} className="hide-scrollbar overflow-y-auto px-4 pb-24 anim-fadeIn" style={{minHeight:"calc(100vh - 104px)"}} onClick={handleCatClick}>
+              <div key={tab} className="hide-scrollbar overflow-y-auto px-4 pb-24 anim-fadeIn" style={{paddingTop:12}} style={{minHeight:"calc(100vh - 92px)"}} onClick={handleCatClick}>
                 {tab==="home" && <HomeScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} onOpen={setOpenProduct} allProducts={allProducts}/>}
                 {tab==="catalog" && <CatalogScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} selectedCategory={catalogCategory} onOpen={setOpenProduct} allProducts={allProducts}/>}
                 {tab==="estimate" && <EstimateScreen tool={estimateTool} onOpenTool={setEstimateTool}/>}
@@ -2320,7 +2318,7 @@ export default function App() {
                 {tab==="profile" && <ProfileScreen section={profileSection} onOpenSection={setProfileSection} city={city} darkMode={darkMode} onToggleTheme={()=>setDarkMode(d=>!d)} onAdd={addToCart} onOpenProduct={setOpenProduct} placedOrders={placedOrders}/>}
               </div>
               <div className="navbar-bg fixed bottom-0 left-0 right-0 z-50">
-                <div className="grid h-[72px] grid-cols-6">
+                <div className="grid h-[58px] grid-cols-6">
                   {navItems.map(item=>(
                     <button key={item.key} onClick={()=>switchTab(item.key)} className="relative flex flex-col items-center justify-center gap-0.5">
                       <div className="flex h-5 w-5 items-center justify-center">{item.icon(tab===item.key)}</div>
