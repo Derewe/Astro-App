@@ -429,25 +429,13 @@ function formatPrice(v) { return new Intl.NumberFormat("ru-RU").format(v) + " �
 // -- Логотип -------------------------------------------------------------------
 function StrovoLogo({ size = 36 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <defs>
-        <radialGradient id="gl" cx="35%" cy="28%" r="40%">
-          <stop offset="0%" stopColor="#fff" stopOpacity="0.13"/>
-          <stop offset="100%" stopColor="#fff" stopOpacity="0"/>
-        </radialGradient>
-      </defs>
-      <line x1="27" y1="65" x2="12" y2="83" stroke="#c8a000" strokeWidth="10" strokeLinecap="round"/>
-      <line x1="27" y1="65" x2="12" y2="83" stroke="#FACC15" strokeWidth="7.5" strokeLinecap="round"/>
-      <circle cx="55" cy="43" r="34" fill="#1a2744" stroke="#c8a000" strokeWidth="6"/>
-      <circle cx="55" cy="43" r="34" fill="none" stroke="#FACC15" strokeWidth="4.5"/>
-      <circle cx="55" cy="43" r="34" fill="url(#gl)"/>
-      <rect x="34" y="30" width="26" height="12" rx="2.5" fill="#FACC15"/>
-      <rect x="62" y="30" width="13" height="12" rx="2.5" fill="#FACC15"/>
-      <rect x="34" y="42" width="41" height="2" rx="1" fill="#1a2744"/>
-      <rect x="34" y="44" width="13" height="12" rx="2.5" fill="#FACC15"/>
-      <rect x="49" y="44" width="26" height="12" rx="2.5" fill="#FACC15"/>
-      <rect x="60" y="30" width="2" height="12" rx="1" fill="#1a2744"/>
-      <rect x="47" y="44" width="2" height="12" rx="1" fill="#1a2744"/>
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <g transform="translate(0,512) scale(0.1,-0.1)" fill="#FACC15" stroke="none">
+        <path d="M3877 4158 l33 -32 0 -645 0 -645 -27 -28 -27 -28 -246 0 -246 0 -27 28 -27 28 0 643 0 642 26 35 26 34 241 0 241 0 33 -32z"/>
+        <path d="M3080 3609 c0 -429 -3 -539 -12 -533 -7 4 -125 79 -261 166 l-248 158 -251 -161 c-138 -88 -257 -163 -265 -166 -11 -4 -13 89 -13 536 l0 541 525 0 525 0 0 -541z"/>
+        <path d="M1810 3471 l0 -539 -296 -166 c-162 -91 -297 -166 -300 -166 -2 0 -4 229 -4 509 l0 508 298 196 c163 108 298 196 300 197 1 0 2 -243 2 -539z"/>
+        <path d="M2755 3010 c99 -64 195 -125 213 -135 l32 -19 0 -883 0 -883 -440 0 -440 0 0 883 0 882 218 141 c119 77 222 138 227 136 6 -3 91 -58 190 -122z"/>
+      </g>
     </svg>
   );
 }
@@ -591,49 +579,98 @@ function CityScreen({ onDone }) {
 }
 
 // -- Сплэш ---------------------------------------------------------------------
+const SPLASH_SLIDES = [
+  { type: "welcome" },
+  {
+    icon: () => (
+      <svg width="72" height="72" viewBox="0 0 24 24" fill="none">
+        <circle cx="11" cy="11" r="7" stroke="#FACC15" strokeWidth="1.6"/>
+        <path d="M16.5 16.5L21 21" stroke="#FACC15" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M8 11h6M11 8v6" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: "Сравни цены за секунды",
+    sub: "Строво показывает предложения от поставщиков и автоматически выбирает лучшее",
+  },
+  {
+    icon: () => (
+      <svg width="72" height="72" viewBox="0 0 24 24" fill="none">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/>
+        <circle cx="9" cy="7" r="4" stroke="#FACC15" strokeWidth="1.6"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: "500+ поставщиков",
+    sub: "Все цены на стройматериалы в одном месте. Не нужно обзванивать базы",
+  },
+  {
+    icon: () => (
+      <svg width="72" height="72" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="3" width="18" height="18" rx="3" stroke="#FACC15" strokeWidth="1.6"/>
+        <path d="M8 12l3 3 5-5" stroke="#FACC15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    title: "Сметный расчёт",
+    sub: "Посчитай плитку, краску, обои и ламинат прямо в приложении — бесплатно",
+  },
+  {
+    icon: () => (
+      <svg width="72" height="72" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="9" width="18" height="12" rx="3" stroke="#FACC15" strokeWidth="1.6"/>
+        <path d="M8 9V7a4 4 0 018 0v2" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M9 14h2v2h-2zM13 14h2v2h-2z" fill="#FACC15"/>
+        <path d="M10 15h4" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/>
+        <path d="M12 13v4" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: "Кабинет поставщика",
+    sub: "Если вы поставщик — у нас есть отдельное приложение для управления товарами и заказами",
+    isSupplier: true,
+  },
+];
+
 function SplashScreen({ onDone }) {
   const [slide, setSlide] = useState(0);
-  const slides = [
-    { type: "welcome" },
-    {
-      type: "feature",
-      icon: ()=><svg width="56" height="56" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#FACC15" strokeWidth="1.8"/><path d="M16.5 16.5L21 21" stroke="#FACC15" strokeWidth="2" strokeLinecap="round"/><path d="M8 11h6M11 8v6" stroke="#FACC15" strokeWidth="1.6" strokeLinecap="round"/></svg>,
-      title: "Сравни цены за секунды",
-      sub: "Strovo показывает предложения от сотен поставщиков и автоматически выбирает лучшее"
-    },
-    {
-      type: "feature",
-      icon: ()=><svg width="56" height="56" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#FACC15" strokeWidth="1.8" strokeLinecap="round"/><circle cx="9" cy="7" r="4" stroke="#FACC15" strokeWidth="1.8"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="#FACC15" strokeWidth="1.8" strokeLinecap="round"/></svg>,
-      title: "500+ поставщиков",
-      sub: "Все цены на стройматериалы в одном месте. Не нужно обзванивать базы"
-    },
-    {
-      type: "feature",
-      icon: ()=><svg width="56" height="56" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="#FACC15" strokeWidth="1.8"/><path d="M8 12l3 3 5-5" stroke="#FACC15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-      title: "Сметный расчёт",
-      sub: "Посчитай плитку, краску, обои и ламинат прямо в приложении — бесплатно"
-    },
-  ];
-  const handleNext = () => { if (slide < slides.length - 1) { setSlide(slide + 1); } else { onDone(); } };
-  const current = slides[slide];
-  const isWelcome = current.type === "welcome";
+  const [showLogin, setShowLogin] = useState(false);
+  const touchStartX = React.useRef<number|null>(null);
+  const total = SPLASH_SLIDES.length;
+
+  const goTo = (i: number) => setSlide(Math.max(0, Math.min(total-1, i)));
+  const handleNext = () => {
+    if (slide < total - 1) goTo(slide + 1);
+    else setShowLogin(true);
+  };
+
+  if (showLogin) return <LoginScreen onDone={onDone} onBack={() => setShowLogin(false)}/>;
+
+  const cur = SPLASH_SLIDES[slide];
+  const isWelcome = cur.type === "welcome";
 
   return (
-    <div className="screen-bg" style={{height:"100dvh",display:"flex",flexDirection:"column",paddingTop:"env(safe-area-inset-top)",paddingBottom:"env(safe-area-inset-bottom)"}}>
-
-      {/* Кнопка пропустить */}
-      <div style={{display:"flex",justifyContent:"flex-end",padding:"16px 24px 0",minHeight:"52px"}}>
-        {!isWelcome && slide < slides.length - 1 && (
-          <button onClick={onDone} className="text-sm text-slate-500">Пропустить</button>
+    <div className="screen-bg" style={{height:"100dvh",display:"flex",flexDirection:"column",
+      paddingTop:"env(safe-area-inset-top)",paddingBottom:"env(safe-area-inset-bottom)"}}
+      onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
+      onTouchEnd={e => {
+        if(touchStartX.current===null) return;
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        if(dx < -40) goTo(slide+1);
+        else if(dx > 40) goTo(slide-1);
+        touchStartX.current = null;
+      }}
+    >
+      {/* Пропустить */}
+      <div style={{display:"flex",justifyContent:"flex-end",padding:"16px 24px 0",minHeight:52}}>
+        {!isWelcome && slide < total - 1 && (
+          <button onClick={() => setShowLogin(true)} className="text-sm text-slate-500">Пропустить</button>
         )}
       </div>
 
-      {/* Контент — строго по центру */}
-      <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 32px"}}>
+      {/* Контент */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"0 32px"}}
+        key={slide}>
         {isWelcome ? (
-          /* Приветственный слайд */
-          <div className="flex flex-col items-center gap-6 text-center">
-            <StrovoLogo size={96} />
+          <div className="flex flex-col items-center gap-6 text-center" style={{animation:"fadeUp 0.4s ease-out both"}}>
+            <StrovoLogo size={96}/>
             <div>
               <div className="text-main text-4xl font-bold tracking-tight mb-2">Строво</div>
               <div className="text-yellow-400 text-sm font-semibold tracking-widest uppercase mb-5">стройка без переплат</div>
@@ -643,34 +680,233 @@ function SplashScreen({ onDone }) {
             </div>
           </div>
         ) : (
-          /* Фича-слайды */
-          <div className="flex flex-col items-center gap-7 text-center w-full">
-            <div className="flex items-center justify-center w-28 h-28 rounded-[28px] bg-yellow-400/10 border border-yellow-400/20">
-              {current.icon && current.icon()}
+          <div className="flex flex-col items-center gap-8 text-center w-full" style={{animation:"fadeUp 0.35s ease-out both"}}>
+            {/* Иконка БЕЗ фона */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {cur.icon && cur.icon()}
             </div>
             <div className="space-y-3">
-              <div className="text-main text-2xl font-bold leading-tight">{current.title}</div>
-              <div className="text-slate-400 text-sm leading-relaxed max-w-[260px]">{current.sub}</div>
+              <div className="text-main text-2xl font-bold leading-tight">{cur.title}</div>
+              <div className="text-slate-400 text-sm leading-relaxed max-w-[260px]">{cur.sub}</div>
+              {cur.isSupplier && null}
             </div>
           </div>
         )}
       </div>
 
-      {/* Точки + кнопка внизу */}
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"20px",padding:"0 24px 48px"}}>
+      {/* Точки + кнопка */}
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:20,padding:"0 24px 48px"}}>
         <div className="flex gap-2 items-center">
-          {slides.map((_, i) => (
-            <button key={i} onClick={() => setSlide(i)}
-              className={`rounded-full transition-all duration-300 ${i === slide ? "w-6 h-2 bg-yellow-400" : "w-2 h-2 bg-slate-700"}`}
-            />
+          {SPLASH_SLIDES.map((_, i) => (
+            <button key={i} onClick={() => goTo(i)} style={{
+              width: i===slide ? 24 : 8, height: 8, borderRadius: 4,
+              background: i===slide ? "#FACC15" : "#334155",
+              transition: "all 0.3s ease", border:"none", padding:0,
+            }}/>
           ))}
         </div>
         <button onClick={handleNext}
           className="w-full rounded-2xl bg-yellow-400 py-4 font-bold text-black text-base">
-          {slide === 0 ? "Начать" : slide < slides.length - 1 ? "Далее" : "Войти в приложение"}
+          {slide === 0 ? "Начать" : slide < total-1 ? "Далее" : "Войти в приложение"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// -- Пользовательское соглашение ----------------------------------------------
+function TermsModal({ onClose }) {
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,display:"flex",alignItems:"flex-end"}}
+      onClick={onClose}>
+      <div className="screen-bg w-full rounded-t-[28px] overflow-hidden"
+        style={{maxHeight:"85dvh",display:"flex",flexDirection:"column"}}
+        onClick={e => e.stopPropagation()}>
+        {/* Хэндл */}
+        <div style={{display:"flex",justifyContent:"center",padding:"12px 0 4px"}}>
+          <div style={{width:36,height:4,borderRadius:2,background:"rgba(255,255,255,0.2)"}}/>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 20px 12px"}}>
+          <div className="text-main font-bold text-lg">Пользовательское соглашение</div>
+          <button onClick={onClose} className="text-slate-400 text-sm">Закрыть</button>
+        </div>
+        <div className="hide-scrollbar overflow-y-auto px-5 pb-10" style={{fontSize:13,lineHeight:1.7,color:"var(--color-text-secondary)"}}>
+          <p style={{marginBottom:12,fontSize:11,color:"#64748b"}}>Последнее обновление: май 2025</p>
+
+          <p style={{marginBottom:16}}>Настоящее Пользовательское соглашение регулирует отношения между ИП Федоров А.С. (далее — «Строво», «мы») и пользователем мобильного приложения «Строво» (далее — «вы», «пользователь»).</p>
+
+          <div className="text-main font-semibold" style={{marginBottom:6}}>1. Принятие условий</div>
+          <p style={{marginBottom:16}}>Используя приложение, вы подтверждаете, что прочитали, поняли и согласны с настоящим соглашением. Если вы не согласны с условиями — пожалуйста, прекратите использование приложения.</p>
+
+          <div className="text-main font-semibold" style={{marginBottom:6}}>2. Описание сервиса</div>
+          <p style={{marginBottom:16}}>«Строво» — агрегатор строительных материалов, позволяющий сравнивать цены поставщиков и оформлять заказы. Мы не являемся продавцом товаров — мы предоставляем платформу для взаимодействия покупателей и поставщиков.</p>
+
+          <div className="text-main font-semibold" style={{marginBottom:6}}>3. Регистрация и аккаунт</div>
+          <p style={{marginBottom:16}}>Для полного доступа к функциям необходима регистрация с указанием номера телефона или email. Вы несёте ответственность за сохранность данных своего аккаунта. Передача аккаунта третьим лицам запрещена.</p>
+
+          <div className="text-main font-semibold" style={{marginBottom:6}}>4. Обработка персональных данных</div>
+          <p style={{marginBottom:16}}>Мы обрабатываем ваши данные (имя, контакты, история заказов, адреса доставки) для обеспечения работы сервиса. Данные не передаются третьим лицам без вашего согласия, за исключением случаев, предусмотренных законодательством РФ. Подробнее — в Политике конфиденциальности.</p>
+
+          <div className="text-main font-semibold" style={{marginBottom:6}}>5. Заказы и оплата</div>
+          <p style={{marginBottom:16}}>Оформляя заказ, вы заключаете договор купли-продажи с конкретным поставщиком. «Строво» не несёт ответственности за качество товаров, сроки доставки и действия поставщиков. Все вопросы по заказу решаются напрямую с поставщиком.</p>
+
+          <div className="text-main font-semibold" style={{marginBottom:6}}>6. Запрещённые действия</div>
+          <p style={{marginBottom:16}}>Запрещено: использовать приложение в незаконных целях; публиковать ложную информацию; пытаться получить несанкционированный доступ к системам сервиса; использовать автоматизированные боты для парсинга данных.</p>
+
+          <div className="text-main font-semibold" style={{marginBottom:6}}>7. Интеллектуальная собственность</div>
+          <p style={{marginBottom:16}}>Все права на приложение, дизайн, алгоритмы и контент принадлежат ИП Федоров А.С. Копирование без письменного разрешения запрещено.</p>
+
+          <div className="text-main font-semibold" style={{marginBottom:6}}>8. Ограничение ответственности</div>
+          <p style={{marginBottom:16}}>Сервис предоставляется «как есть». Мы не гарантируем бесперебойную работу приложения и не несём ответственности за убытки, возникшие в связи с использованием сервиса, кроме случаев прямого умысла.</p>
+
+          <div className="text-main font-semibold" style={{marginBottom:6}}>9. Изменение условий</div>
+          <p style={{marginBottom:16}}>Мы вправе изменять условия соглашения, уведомляя об этом через приложение. Продолжение использования после уведомления означает согласие с новыми условиями.</p>
+
+          <div className="text-main font-semibold" style={{marginBottom:6}}>10. Контакты</div>
+          <p style={{marginBottom:16}}>По вопросам соглашения: support@strovo.ru</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function LoginScreen({ onDone, onBack }) {
+  const [mode, setMode] = useState<"phone"|"email">("phone");
+  const [value, setValue] = useState("");
+  const [step, setStep] = useState<"input"|"code">("input");
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+
+  const handleSend = () => {
+    if(!value.trim()) return;
+    setLoading(true);
+    setTimeout(() => { setLoading(false); setStep("code"); }, 1200);
+  };
+
+  const handleVerify = () => {
+    if(code.length < 4) return;
+    setLoading(true);
+    setTimeout(() => { setLoading(false); onDone(); }, 1000);
+  };
+
+  const formatPhone = (v: string) => {
+    const digits = v.replace(/\D/g, '').slice(0,11);
+    if(digits.length === 0) return '';
+    let r = '+7';
+    if(digits.length > 1) r += ' (' + digits.slice(1,4);
+    if(digits.length > 4) r += ') ' + digits.slice(4,7);
+    if(digits.length > 7) r += '-' + digits.slice(7,9);
+    if(digits.length > 9) r += '-' + digits.slice(9,11);
+    return r;
+  };
+
+  return (
+    <div className="screen-bg" style={{height:"100dvh",display:"flex",flexDirection:"column",
+      paddingTop:"env(safe-area-inset-top)",paddingBottom:"env(safe-area-inset-bottom)"}}>
+
+      {showTerms && <TermsModal onClose={() => setShowTerms(false)}/>}
+
+      {/* Назад */}
+      <div style={{padding:"16px 24px 0"}}>
+        <button onClick={step==="code" ? () => setStep("input") : onBack}
+          className="flex items-center gap-2 text-slate-400 text-sm">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Назад
         </button>
       </div>
 
+      <div style={{flex:1,display:"flex",flexDirection:"column",padding:"32px 24px 0"}}>
+        {/* Лого */}
+        <div className="flex items-center gap-3 mb-10">
+          <StrovoLogo size={36}/>
+          <span className="text-main text-xl font-bold">Строво</span>
+        </div>
+
+        {step === "input" ? (
+          <>
+            <div className="text-main text-2xl font-bold mb-2">Войти или создать<br/>аккаунт</div>
+            <div className="text-slate-400 text-sm mb-8">Без регистрации данные не сохраняются</div>
+
+            {/* Переключатель */}
+            <div className="flex gap-1 rounded-2xl p-1 mb-6" style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}}>
+              {(["phone","email"] as const).map(m => (
+                <button key={m} onClick={() => { setMode(m); setValue(""); }}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all"
+                  style={{background: mode===m ? "#FACC15" : "transparent", color: mode===m ? "#000" : "var(--color-text-secondary)"}}>
+                  {m === "phone" ? "📱 Телефон" : "✉️ Email"}
+                </button>
+              ))}
+            </div>
+
+            {/* Поле ввода */}
+            <div className="relative mb-4">
+              <input
+                type={mode==="email" ? "email" : "tel"}
+                value={value}
+                onChange={e => setValue(mode==="phone" ? formatPhone(e.target.value) : e.target.value)}
+                placeholder={mode==="phone" ? "+7 (___) ___-__-__" : "example@mail.ru"}
+                className="w-full rounded-2xl px-4 py-4 text-main text-base outline-none"
+                style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}}
+                autoFocus
+              />
+            </div>
+
+            <div className="text-slate-500 text-xs mb-8">
+              Отправим {mode==="phone" ? "SMS с кодом" : "письмо со ссылкой"}. Продолжая, вы соглашаетесь с <button onClick={() => setShowTerms(true)} className="text-yellow-400 underline underline-offset-2">условиями использования</button>
+            </div>
+
+            <button onClick={handleSend} disabled={!value.trim() || loading}
+              className="w-full rounded-2xl bg-yellow-400 py-4 font-bold text-black text-base disabled:opacity-50">
+              {loading ? "Отправляем..." : "Получить код"}
+            </button>
+
+            <div className="flex items-center gap-4 my-6">
+              <div className="flex-1 h-px bg-white/10"/>
+              <span className="text-slate-500 text-sm">или</span>
+              <div className="flex-1 h-px bg-white/10"/>
+            </div>
+
+            {/* Гостевой вход */}
+            <button onClick={onDone}
+              className="w-full rounded-2xl py-4 font-semibold text-slate-400 text-sm"
+              style={{border:"1px solid var(--btn-border)"}}>
+              Продолжить без входа
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="text-main text-2xl font-bold mb-2">Введите код</div>
+            <div className="text-slate-400 text-sm mb-8">
+              Отправили {mode==="phone" ? "SMS на" : "письмо на"} <span className="text-main font-medium">{value}</span>
+            </div>
+
+            {/* Поле кода */}
+            <input
+              type="number"
+              value={code}
+              onChange={e => setCode(e.target.value.slice(0,6))}
+              placeholder="••••••"
+              className="w-full rounded-2xl px-4 py-5 text-main text-2xl text-center font-bold tracking-widest outline-none mb-4"
+              style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)",letterSpacing:16}}
+              autoFocus
+            />
+
+            <button onClick={handleVerify} disabled={code.length < 4 || loading}
+              className="w-full rounded-2xl bg-yellow-400 py-4 font-bold text-black text-base disabled:opacity-50 mb-4">
+              {loading ? "Проверяем..." : "Подтвердить"}
+            </button>
+
+            <button onClick={() => { setStep("input"); setCode(""); }}
+              className="text-center text-slate-400 text-sm w-full py-2">
+              Отправить повторно
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -1110,13 +1346,28 @@ function BannerCarousel() {
 }
 
 function HomeScreen({ favorites, onToggleFavorite, onAdd, onOpen, allProducts: ap }) {
-  const productList = ap || products;
+  const productList = React.useMemo(() => {
+    const all = ap || products;
+    // Берём по 2 товара из каждой категории для разнообразия
+    const cats: Record<string,any[]> = {};
+    all.forEach(p => { (cats[p.category] = cats[p.category]||[]).push(p); });
+    const mixed: any[] = [];
+    let round = true;
+    while(mixed.length < 18 && round) {
+      round = false;
+      Object.values(cats).forEach(arr => {
+        const taken = mixed.filter(p=>p.category===arr[0].category).length;
+        if(taken < 2 && arr[taken]) { mixed.push(arr[taken]); round = true; }
+      });
+    }
+    return mixed.length > 0 ? mixed : all.slice(0,18);
+  }, [ap]);
   return (
     <div className="tab-enter pb-4" style={{display:"flex",flexDirection:"column",gap:16}}>
       <BannerCarousel/>
       <div className="text-main rounded-full border-2 border-current px-3 py-1 text-sm font-medium w-fit">Для вас</div>
       <div className="grid grid-cols-2 gap-3">
-        {productList.slice(0,6).map((item,i)=><div key={item.id} className="anim-fadeUp" style={{animationDelay:`${120+i*60}ms`}}><ProductCard item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/></div>)}
+        {productList.map((item,i)=><div key={item.id} className="anim-fadeUp" style={{animationDelay:`${120+i*60}ms`}}><ProductCard item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/></div>)}
       </div>
     </div>
   );
@@ -1176,6 +1427,8 @@ function CatalogScreen({ favorites, onToggleFavorite, onAdd, selectedCategory, o
   const productList = ap || products;
   const [delivery, setDelivery] = useState("all");
   const [sort, setSort] = useState("default");
+  const [animKey, setAnimKey] = React.useState(0);
+  React.useEffect(() => { setAnimKey(k=>k+1); }, [selectedCategory]);
 
   const filteredProducts = useMemo(() => {
     let list = selectedCategory ? productList.filter(p => p.category === selectedCategory) : productList;
@@ -2272,7 +2525,7 @@ export default function App() {
     <div className={`min-h-screen ${darkMode ? "dark bg-[#0b1120] text-white" : "light bg-[#f5f5f5] text-gray-900"}`}>
       <style>{`.hide-scrollbar::-webkit-scrollbar{display:none}.hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none}button{-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}input{-webkit-tap-highlight-color:transparent}@keyframes fadeSlideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}.tab-enter{animation:fadeSlideIn 0.18s ease-out}.no-scrollbar::-webkit-scrollbar{display:none}.dark,.light{transition:background-color 0.25s ease,color 0.25s ease}.card-bg,.card-bg-raw,.topbar-bg,.navbar-bg,.input-bg,.screen-bg{transition:background-color 0.25s ease,border-color 0.25s ease}
 .dark{--btn-bg:rgba(255,255,255,0.1);--btn-border:rgba(255,255,255,0.05);--divider:rgba(255,255,255,0.08);--row-border:rgba(255,255,255,0.06)}
-.light{--btn-bg:rgba(0,0,0,0.05);--btn-border:rgba(0,0,0,0.1);--divider:rgba(0,0,0,0.08);--row-border:rgba(0,0,0,0.08)}.dark .card-bg{background:#182235}.light .card-bg{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .screen-bg{background:#0f172a}.light .screen-bg{background:#f5f5f5}.screen-bg{background:#0f172a}.dark .topbar-bg{background:#0f172a}.light .topbar-bg{background:#ffffff;border-bottom:1px solid #efefef}.dark .navbar-bg{background:#111827;border-top:1px solid rgba(255,255,255,0.1)}.light .navbar-bg{background:#ffffff;border-top:1px solid #efefef}.dark .input-bg{background:#0f172a}.light .input-bg{background:#f5f5f5}.card-bg-raw{background:#182235}.light .card-bg-raw{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .text-main{color:#ffffff}.light .text-main{color:#1a1a1a}.dark .text-sub{color:#94a3b8}.light .text-sub{color:#6b7280}.dark .section-header{color:#ffffff}.light .section-header{color:#1a1a1a}
+.light{--btn-bg:rgba(0,0,0,0.05);--btn-border:rgba(0,0,0,0.1);--divider:rgba(0,0,0,0.08);--row-border:rgba(0,0,0,0.08)}.dark .card-bg{background:#182235}.light .card-bg{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .screen-bg{background:#0f172a}.light .screen-bg{background:#f5f5f5}.screen-bg{background:#0f172a}.dark .topbar-bg{background:#0f172a;border-bottom:1px solid transparent}.light .topbar-bg{background:#ffffff;border-bottom:1px solid #efefef}.dark .navbar-bg{background:#111827;border-top:1px solid rgba(255,255,255,0.1)}.light .navbar-bg{background:#ffffff;border-top:1px solid #efefef}.dark .input-bg{background:#0f172a}.light .input-bg{background:#f5f5f5}.card-bg-raw{background:#182235}.light .card-bg-raw{background:#ffffff;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,0.04)}.dark .text-main{color:#ffffff}.light .text-main{color:#1a1a1a}.dark .text-sub{color:#94a3b8}.light .text-sub{color:#475569}.dark .section-header{color:#ffffff}.light .section-header{color:#1a1a1a}
 *::-webkit-scrollbar{display:none!important}*{scrollbar-width:none!important;-ms-overflow-style:none!important}.topbar-bg{padding-top:env(safe-area-inset-top)!important}.navbar-bg{padding-bottom:env(safe-area-inset-bottom)}@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}@keyframes slideInLeft{from{transform:translateX(-100%)}to{transform:translateX(0)}}@keyframes slideOutLeft{from{transform:translateX(0)}to{transform:translateX(-100%)}}@keyframes slideOutRight{from{transform:translateX(0)}to{transform:translateX(100%)}}@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes scaleIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}.anim-fadeUp{animation:fadeUp 0.3s ease-out both}.anim-fadeIn{animation:fadeIn 0.25s ease-out both}.anim-scaleIn{animation:scaleIn 0.2s ease-out both}.product-card-wrap{transition:transform 0.18s ease,box-shadow 0.18s ease,border-color 0.18s ease}.product-card-wrap:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(250,204,21,0.12)}.product-card-wrap:active{transform:scale(0.98)}.banner-slide{transition:transform 0.4s cubic-bezier(0.4,0,0.2,1),opacity 0.4s ease}`}</style>
       <div data-theme={darkMode?"dark":"light"} className={`relative min-h-screen screen-bg`}>
 
@@ -2309,7 +2562,7 @@ export default function App() {
           ) : (
             <>
               {renderTopBar()}
-              <div key={tab} className="hide-scrollbar overflow-y-auto px-4 pb-24 anim-fadeIn" style={{paddingTop:12}} style={{minHeight:"calc(100vh - 92px)"}} onClick={handleCatClick}>
+              <div key={tab} className="hide-scrollbar overflow-y-auto px-4 pb-24 anim-fadeIn" style={{paddingTop:12,minHeight:"calc(100vh - 92px)"}} onClick={handleCatClick}>
                 {tab==="home" && <HomeScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} onOpen={setOpenProduct} allProducts={allProducts}/>}
                 {tab==="catalog" && <CatalogScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} selectedCategory={catalogCategory} onOpen={setOpenProduct} allProducts={allProducts}/>}
                 {tab==="estimate" && <EstimateScreen tool={estimateTool} onOpenTool={setEstimateTool}/>}
