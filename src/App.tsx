@@ -51,16 +51,6 @@ type Supplier = {
 
 // -- Comparison Engine ------------------------------------------------------
 // Data layer - maps product numeric IDs to engine string IDs
-const PRODUCT_ID_MAP: Record<number, string> = {
-  1: "brick-facing",
-  2: "cement-m500",
-  3: "drywall",
-  4: "metal-profile",
-  5: "putty-finish",
-  6: "foam-block",
-  7: "insulation",
-  8: "paint-facade",
-};
 
 
 
@@ -68,49 +58,7 @@ const PRODUCT_ID_MAP: Record<number, string> = {
 
 // -- All supplier offers (Data Layer) --------------------------------------
 // Replace fetchOffers() body with API call when ready for production
-const ALL_SUPPLIER_OFFERS = [
-  // Кирпич облицовочный
-  { id:"o001", productId:"brick-facing", supplierName:"СтройБаза 24", city:"Оренбург", price:11980, deliveryDays:0, availability:"high", rating:4.8, lastUpdated:"2026-03-22T08:00:00Z" },
-  { id:"o002", productId:"brick-facing", supplierName:"МегаСтрой", city:"Оренбург", price:12400, deliveryDays:1, availability:"medium", rating:4.5, lastUpdated:"2026-03-21T14:30:00Z" },
-  { id:"o003", productId:"brick-facing", supplierName:"СтройМаркет", city:"Оренбург", price:13100, deliveryDays:2, availability:"high", rating:4.3, lastUpdated:"2026-03-20T10:00:00Z" },
-  { id:"o004", productId:"brick-facing", supplierName:"КирпичОпт", city:"Оренбург", price:11750, deliveryDays:3, availability:"low", rating:4.1, lastUpdated:"2026-03-19T09:00:00Z" },
-  { id:"o005", productId:"brick-facing", supplierName:"БазаСнаб", city:"Оренбург", price:14200, deliveryDays:1, availability:"high", rating:4.6, lastUpdated:"2026-03-22T07:00:00Z" },
-  // Цемент М500
-  { id:"o006", productId:"cement-m500", supplierName:"ПрофСнаб", city:"Оренбург", price:5400, deliveryDays:1, availability:"high", rating:4.7, lastUpdated:"2026-03-22T09:00:00Z" },
-  { id:"o007", productId:"cement-m500", supplierName:"СтройОптом", city:"Оренбург", price:5800, deliveryDays:0, availability:"medium", rating:4.4, lastUpdated:"2026-03-21T11:00:00Z" },
-  { id:"o008", productId:"cement-m500", supplierName:"БазаСнаб", city:"Оренбург", price:6100, deliveryDays:2, availability:"high", rating:4.2, lastUpdated:"2026-03-20T15:00:00Z" },
-  { id:"o009", productId:"cement-m500", supplierName:"ЦементТорг", city:"Оренбург", price:4950, deliveryDays:4, availability:"low", rating:3.9, lastUpdated:"2026-03-18T08:00:00Z" },
-  // Гипсокартон
-  { id:"o010", productId:"drywall", supplierName:"СнабМаркет", city:"Оренбург", price:8300, deliveryDays:2, availability:"high", rating:4.9, lastUpdated:"2026-03-22T06:00:00Z" },
-  { id:"o011", productId:"drywall", supplierName:"ГипсоТорг", city:"Оренбург", price:8700, deliveryDays:1, availability:"medium", rating:4.5, lastUpdated:"2026-03-21T16:00:00Z" },
-  { id:"o012", productId:"drywall", supplierName:"СтройДом", city:"Оренбург", price:9100, deliveryDays:3, availability:"high", rating:4.2, lastUpdated:"2026-03-20T12:00:00Z" },
-  { id:"o013", productId:"drywall", supplierName:"ЛистМастер", city:"Оренбург", price:7950, deliveryDays:5, availability:"low", rating:4.0, lastUpdated:"2026-03-17T09:00:00Z" },
-  // Профиль металлический
-  { id:"o014", productId:"metal-profile", supplierName:"МеталлТорг", city:"Оренбург", price:3900, deliveryDays:0, availability:"high", rating:4.6, lastUpdated:"2026-03-22T10:00:00Z" },
-  { id:"o015", productId:"metal-profile", supplierName:"ПрофМetal", city:"Оренбург", price:4200, deliveryDays:1, availability:"medium", rating:4.4, lastUpdated:"2026-03-21T13:00:00Z" },
-  { id:"o016", productId:"metal-profile", supplierName:"СтальСнаб", city:"Оренбург", price:4500, deliveryDays:2, availability:"high", rating:4.1, lastUpdated:"2026-03-20T11:00:00Z" },
-  { id:"o017", productId:"metal-profile", supplierName:"МеталлБаза", city:"Оренбург", price:3750, deliveryDays:3, availability:"low", rating:4.0, lastUpdated:"2026-03-19T14:00:00Z" },
-  // Шпаклёвка
-  { id:"o018", productId:"putty-finish", supplierName:"ОтделкаПро", city:"Оренбург", price:4200, deliveryDays:1, availability:"high", rating:4.8, lastUpdated:"2026-03-22T08:30:00Z" },
-  { id:"o019", productId:"putty-finish", supplierName:"ШпакляМастер", city:"Оренбург", price:4600, deliveryDays:0, availability:"medium", rating:4.5, lastUpdated:"2026-03-21T09:00:00Z" },
-  { id:"o020", productId:"putty-finish", supplierName:"РемСнаб", city:"Оренбург", price:4900, deliveryDays:2, availability:"high", rating:4.3, lastUpdated:"2026-03-20T16:00:00Z" },
-  { id:"o021", productId:"putty-finish", supplierName:"СтройОптом", city:"Оренбург", price:3980, deliveryDays:4, availability:"low", rating:3.8, lastUpdated:"2026-03-18T11:00:00Z" },
-  // Пеноблок
-  { id:"o022", productId:"foam-block", supplierName:"БлокСнаб", city:"Оренбург", price:15600, deliveryDays:2, availability:"high", rating:4.7, lastUpdated:"2026-03-22T07:30:00Z" },
-  { id:"o023", productId:"foam-block", supplierName:"ПенобетонТорг", city:"Оренбург", price:16200, deliveryDays:3, availability:"medium", rating:4.4, lastUpdated:"2026-03-21T10:00:00Z" },
-  { id:"o024", productId:"foam-block", supplierName:"СтройБаза М", city:"Оренбург", price:17000, deliveryDays:1, availability:"high", rating:4.3, lastUpdated:"2026-03-20T09:00:00Z" },
-  { id:"o025", productId:"foam-block", supplierName:"БлокОптТорг", city:"Оренбург", price:14900, deliveryDays:5, availability:"low", rating:4.0, lastUpdated:"2026-03-17T14:00:00Z" },
-  // Утеплитель
-  { id:"o026", productId:"insulation", supplierName:"ТеплоСтрой", city:"Оренбург", price:6800, deliveryDays:2, availability:"high", rating:4.5, lastUpdated:"2026-03-22T11:00:00Z" },
-  { id:"o027", productId:"insulation", supplierName:"ИзолТорг", city:"Оренбург", price:7200, deliveryDays:1, availability:"medium", rating:4.3, lastUpdated:"2026-03-21T15:00:00Z" },
-  { id:"o028", productId:"insulation", supplierName:"УтеплМаркет", city:"Оренбург", price:7600, deliveryDays:3, availability:"high", rating:4.1, lastUpdated:"2026-03-20T08:00:00Z" },
-  { id:"o029", productId:"insulation", supplierName:"МинватаОпт", city:"Оренбург", price:6400, deliveryDays:4, availability:"low", rating:3.9, lastUpdated:"2026-03-18T13:00:00Z" },
-  // Краска
-  { id:"o030", productId:"paint-facade", supplierName:"КраскаПро", city:"Оренбург", price:3200, deliveryDays:1, availability:"high", rating:4.6, lastUpdated:"2026-03-22T09:30:00Z" },
-  { id:"o031", productId:"paint-facade", supplierName:"КолорМаркет", city:"Оренбург", price:3500, deliveryDays:0, availability:"medium", rating:4.4, lastUpdated:"2026-03-21T12:00:00Z" },
-  { id:"o032", productId:"paint-facade", supplierName:"СтройКраска", city:"Оренбург", price:3800, deliveryDays:2, availability:"high", rating:4.2, lastUpdated:"2026-03-20T14:00:00Z" },
-  { id:"o033", productId:"paint-facade", supplierName:"ЛКМОпт", city:"Оренбург", price:2950, deliveryDays:5, availability:"low", rating:3.8, lastUpdated:"2026-03-17T10:00:00Z" },
-];
+// Офферы поставщиков загружаются из Google Sheets
 
 // -- Data Access Layer ------------------------------------------------------
 function fetchOffers(productId): SupplierOffer[] {
@@ -218,153 +166,8 @@ function runComparison(offers): ComparisonResult | null {
 
 
 
-const productSuppliers: Record<number, Supplier[]> = {
-  1: [
-    { name: "СтройБаза 24", price: 11980, delivery: "Сегодня", rating: 4.8, badge: "Лучшая цена" },
-    { name: "МегаСтрой", price: 12400, delivery: "Завтра", rating: 4.6 },
-    { name: "СтройМаркет", price: 13100, delivery: "2 дня", rating: 4.4 },
-  ],
-  2: [
-    { name: "ПрофСнаб", price: 5400, delivery: "Завтра", rating: 4.7, badge: "Лучшая цена" },
-    { name: "СтройОптом", price: 5800, delivery: "Сегодня", rating: 4.5 },
-    { name: "БазаСнаб", price: 6100, delivery: "2 дня", rating: 4.3 },
-  ],
-  3: [
-    { name: "СнабМаркет", price: 8300, delivery: "2 дня", rating: 4.9, badge: "Лучшая цена" },
-    { name: "ГипсоТорг", price: 8700, delivery: "Завтра", rating: 4.5 },
-    { name: "СтройДом", price: 9100, delivery: "3 дня", rating: 4.2 },
-  ],
-  4: [
-    { name: "МеталлТорг", price: 3900, delivery: "Сегодня", rating: 4.6, badge: "Лучшая цена" },
-    { name: "ПрофМetal", price: 4200, delivery: "Завтра", rating: 4.4 },
-    { name: "СтальСнаб", price: 4500, delivery: "2 дня", rating: 4.1 },
-  ],
-  5: [
-    { name: "ОтделкаПро", price: 4200, delivery: "Завтра", rating: 4.8, badge: "Лучшая цена" },
-    { name: "ШпакляМастер", price: 4600, delivery: "Сегодня", rating: 4.5 },
-    { name: "РемСнаб", price: 4900, delivery: "2 дня", rating: 4.3 },
-  ],
-  6: [
-    { name: "БлокСнаб", price: 15600, delivery: "2 дня", rating: 4.7, badge: "Лучшая цена" },
-    { name: "ПенобетонТорг", price: 16200, delivery: "3 дня", rating: 4.4 },
-    { name: "СтройБаза М", price: 17000, delivery: "Завтра", rating: 4.3 },
-  ],
-  7: [
-    { name: "ТеплоСтрой", price: 6800, delivery: "2 дня", rating: 4.5, badge: "Лучшая цена" },
-    { name: "ИзолТорг", price: 7200, delivery: "Завтра", rating: 4.3 },
-    { name: "УтеплМаркет", price: 7600, delivery: "3 дня", rating: 4.1 },
-  ],
-  8: [
-    { name: "КраскаПро", price: 3200, delivery: "Завтра", rating: 4.6, badge: "Лучшая цена" },
-    { name: "КолорМаркет", price: 3500, delivery: "Сегодня", rating: 4.4 },
-    { name: "СтройКраска", price: 3800, delivery: "2 дня", rating: 4.2 },
-  ],
-};
 
-const products = [
-  // -- Блоки и кирпич ----------------------------------------------------------
-  { id: 1, name: "Кирпич облицовочный", price: 11980, oldPrice: 14500, discount: 17, unit: "200 шт", supplier: "СтройБаза 24", delivery: "Сегодня", rating: 4.8, category: "Блоки и кирпич", color: "from-yellow-400 to-amber-500", img: "https://images.unsplash.com/photo-1564767655658-4e3f5a00d783?w=400&q=80" },
-  { id: 6, name: "Пеноблок стеновой", price: 15600, oldPrice: 18100, discount: 14, unit: "2 поддона", supplier: "БлокСнаб", delivery: "2 дня", rating: 4.7, category: "Блоки и кирпич", color: "from-stone-300 to-stone-500", img: "https://images.unsplash.com/photo-1590593162201-f67611a18b87?w=400&q=80" },
-  { id: 101, name: "Кирпич рядовой полнотелый", price: 8400, oldPrice: 9800, discount: 14, unit: "200 шт", supplier: "КирпичОпт", delivery: "Завтра", rating: 4.5, category: "Блоки и кирпич", color: "from-red-300 to-red-500", img: "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=400&q=80" },
-  { id: 102, name: "Газоблок D400", price: 12800, oldPrice: 14200, discount: 10, unit: "1 поддон", supplier: "ГазоСтрой", delivery: "2 дня", rating: 4.6, category: "Блоки и кирпич", color: "from-gray-200 to-gray-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-  { id: 103, name: "Блок керамзитобетонный", price: 6900, oldPrice: 7800, discount: 12, unit: "40 шт", supplier: "БлокСнаб", delivery: "Сегодня", rating: 4.4, category: "Блоки и кирпич", color: "from-amber-200 to-amber-400", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-
-  // -- Сухие смеси и грунтовки --------------------------------------------------
-  { id: 2, name: "Цемент М500", price: 5400, oldPrice: 6200, discount: 13, unit: "10 мешков", supplier: "ПрофСнаб", delivery: "Завтра", rating: 4.7, category: "Сухие смеси и грунтовки", color: "from-slate-300 to-slate-500", img: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80" },
-  { id: 5, name: "Шпаклёвка финишная", price: 4200, oldPrice: 5100, discount: 18, unit: "8 мешков", supplier: "ОтделкаПро", delivery: "Завтра", rating: 4.8, category: "Сухие смеси и грунтовки", color: "from-orange-300 to-orange-500", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
-  { id: 104, name: "Грунтовка глубокого проникновения", price: 1800, oldPrice: 2200, discount: 18, unit: "10 л", supplier: "ОтделкаПро", delivery: "Сегодня", rating: 4.7, category: "Сухие смеси и грунтовки", color: "from-blue-300 to-blue-500", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
-  { id: 105, name: "Плиточный клей Bergauf", price: 3600, oldPrice: 4100, discount: 12, unit: "5 мешков", supplier: "СтройОптом", delivery: "Завтра", rating: 4.6, category: "Сухие смеси и грунтовки", color: "from-yellow-200 to-yellow-400", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-  { id: 106, name: "Наливной пол самовыравнивающийся", price: 5200, oldPrice: 6000, discount: 13, unit: "6 мешков", supplier: "РемСнаб", delivery: "2 дня", rating: 4.5, category: "Сухие смеси и грунтовки", color: "from-stone-200 to-stone-400", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
-
-  // -- Теплоизоляция -------------------------------------------------------------
-  { id: 7, name: "Утеплитель минвата", price: 6800, oldPrice: 7900, discount: 14, unit: "10 плит", supplier: "ТеплоСтрой", delivery: "2 дня", rating: 4.5, category: "Теплоизоляция", color: "from-sky-300 to-sky-500", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
-  { id: 107, name: "Пенополистирол ПСБ-С 25", price: 4500, oldPrice: 5200, discount: 13, unit: "10 плит", supplier: "ИзолТорг", delivery: "Завтра", rating: 4.6, category: "Теплоизоляция", color: "from-white to-gray-200", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
-  { id: 108, name: "Экструдированный пенополистирол", price: 7200, oldPrice: 8400, discount: 14, unit: "8 плит", supplier: "УтеплМаркет", delivery: "2 дня", rating: 4.4, category: "Теплоизоляция", color: "from-orange-200 to-orange-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-  { id: 109, name: "Фольгированный утеплитель", price: 2900, oldPrice: 3400, discount: 15, unit: "1 рулон 50м", supplier: "ТеплоСтрой", delivery: "Сегодня", rating: 4.5, category: "Теплоизоляция", color: "from-yellow-100 to-yellow-300", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
-
-  // -- Листовые материалы --------------------------------------------------------
-  { id: 3, name: "Гипсокартон влагостойкий", price: 8300, oldPrice: 9400, discount: 12, unit: "15 листов", supplier: "СнабМаркет", delivery: "2 дня", rating: 4.9, category: "Листовые материалы", color: "from-emerald-300 to-emerald-500", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-  { id: 110, name: "Фанера ФСФ 18мм", price: 9600, oldPrice: 11000, discount: 13, unit: "10 листов", supplier: "ЛистМастер", delivery: "Завтра", rating: 4.6, category: "Листовые материалы", color: "from-amber-300 to-amber-500", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-  { id: 111, name: "ОСП плита 12мм", price: 7400, oldPrice: 8500, discount: 13, unit: "10 листов", supplier: "СтройДом", delivery: "2 дня", rating: 4.5, category: "Листовые материалы", color: "from-yellow-300 to-yellow-500", img: "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=400&q=80" },
-  { id: 112, name: "ЦСП плита 10мм", price: 11200, oldPrice: 12800, discount: 13, unit: "10 листов", supplier: "СнабМаркет", delivery: "3 дня", rating: 4.4, category: "Листовые материалы", color: "from-gray-300 to-gray-500", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-  { id: 113, name: "Гипсокартон обычный 12.5мм", price: 6100, oldPrice: 7000, discount: 13, unit: "15 листов", supplier: "ГипсоТорг", delivery: "Сегодня", rating: 4.7, category: "Листовые материалы", color: "from-slate-200 to-slate-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-
-  // -- Металлопрокат -------------------------------------------------------------
-  { id: 4, name: "Профиль металлический", price: 3900, oldPrice: 4500, discount: 14, unit: "30 шт", supplier: "МеталлТорг", delivery: "Сегодня", rating: 4.6, category: "Металлопрокат", color: "from-zinc-200 to-zinc-400", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
-  { id: 114, name: "Арматура А500С 12мм", price: 18500, oldPrice: 21000, discount: 12, unit: "1 тонна", supplier: "СтальСнаб", delivery: "2 дня", rating: 4.7, category: "Металлопрокат", color: "from-zinc-400 to-zinc-600", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
-  { id: 115, name: "Труба профильная 40х40", price: 8900, oldPrice: 10200, discount: 13, unit: "50 м.п.", supplier: "МеталлБаза", delivery: "Завтра", rating: 4.5, category: "Металлопрокат", color: "from-gray-400 to-gray-600", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
-  { id: 116, name: "Уголок стальной 50х50мм", price: 6400, oldPrice: 7300, discount: 12, unit: "50 м.п.", supplier: "МеталлТорг", delivery: "Сегодня", rating: 4.6, category: "Металлопрокат", color: "from-slate-400 to-slate-600", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
-  { id: 117, name: "Сетка сварная 100х100мм", price: 4200, oldPrice: 4900, discount: 14, unit: "10 карт", supplier: "ПрофМetal", delivery: "2 дня", rating: 4.4, category: "Металлопрокат", color: "from-zinc-300 to-zinc-500", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
-
-  // -- Кровля --------------------------------------------------------------------
-  { id: 118, name: "Профнастил С8 оцинкованный", price: 14200, oldPrice: 16500, discount: 14, unit: "10 листов", supplier: "КровляМастер", delivery: "2 дня", rating: 4.7, category: "Кровля", color: "from-gray-300 to-gray-500", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-  { id: 119, name: "Металлочерепица Монтеррей", price: 28500, oldPrice: 33000, discount: 14, unit: "10 листов", supplier: "КровляПро", delivery: "3 дня", rating: 4.8, category: "Кровля", color: "from-red-400 to-red-600", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-  { id: 120, name: "Ондулин коричневый", price: 9800, oldPrice: 11200, discount: 13, unit: "10 листов", supplier: "СтройМаркет", delivery: "Завтра", rating: 4.5, category: "Кровля", color: "from-amber-600 to-amber-800", img: "https://images.unsplash.com/photo-1590593162201-f67611a18b87?w=400&q=80" },
-  { id: 121, name: "Битумная черепица Shinglas", price: 21000, oldPrice: 24500, discount: 14, unit: "10 уп.", supplier: "КровляМастер", delivery: "3 дня", rating: 4.6, category: "Кровля", color: "from-stone-500 to-stone-700", img: "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=400&q=80" },
-
-  // -- Фасадные материалы --------------------------------------------------------
-  { id: 122, name: "Сайдинг виниловый белый", price: 12400, oldPrice: 14200, discount: 13, unit: "20 панелей", supplier: "ФасадПро", delivery: "2 дня", rating: 4.6, category: "Фасадные материалы", color: "from-slate-100 to-slate-300", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-  { id: 123, name: "Фасадная панель под кирпич", price: 18600, oldPrice: 21500, discount: 13, unit: "10 листов", supplier: "СтройДом", delivery: "3 дня", rating: 4.5, category: "Фасадные материалы", color: "from-red-200 to-red-400", img: "https://images.unsplash.com/photo-1564767655658-4e3f5a00d783?w=400&q=80" },
-  { id: 124, name: "Штукатурка декоративная Короед", price: 4800, oldPrice: 5600, discount: 14, unit: "5 мешков", supplier: "ОтделкаПро", delivery: "Завтра", rating: 4.7, category: "Фасадные материалы", color: "from-amber-100 to-amber-300", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
-  { id: 125, name: "Керамогранит фасадный", price: 22000, oldPrice: 25500, discount: 14, unit: "10 кв.м", supplier: "КаменьСтрой", delivery: "4 дня", rating: 4.8, category: "Фасадные материалы", color: "from-stone-300 to-stone-500", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-
-  // -- Профиль и комплектующие ---------------------------------------------------
-  { id: 126, name: "Профиль ПП 60х27мм", price: 2800, oldPrice: 3200, discount: 13, unit: "50 шт", supplier: "МеталлТорг", delivery: "Сегодня", rating: 4.6, category: "Профиль и комплектующие", color: "from-zinc-200 to-zinc-400", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
-  { id: 127, name: "Профиль ПН 28х27мм", price: 2100, oldPrice: 2400, discount: 13, unit: "50 шт", supplier: "ПрофМetal", delivery: "Сегодня", rating: 4.5, category: "Профиль и комплектующие", color: "from-gray-200 to-gray-400", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
-  { id: 128, name: "Подвес прямой для профиля", price: 890, oldPrice: 1100, discount: 19, unit: "100 шт", supplier: "СнабМаркет", delivery: "Завтра", rating: 4.4, category: "Профиль и комплектующие", color: "from-slate-300 to-slate-500", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
-  { id: 129, name: "Дюбель-гвоздь 6х40мм", price: 650, oldPrice: 780, discount: 17, unit: "200 шт", supplier: "СтройРасход", delivery: "Сегодня", rating: 4.5, category: "Профиль и комплектующие", color: "from-yellow-200 to-yellow-400", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-
-  // -- Строительные расходники ---------------------------------------------------
-  { id: 130, name: "Саморезы по металлу 3.5х25", price: 480, oldPrice: 580, discount: 17, unit: "1000 шт", supplier: "СтройРасход", delivery: "Сегодня", rating: 4.6, category: "Строительные расходники", color: "from-gray-300 to-gray-500", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-  { id: 131, name: "Монтажная пена 65л Makroflex", price: 890, oldPrice: 1050, discount: 15, unit: "12 шт", supplier: "РемСнаб", delivery: "Завтра", rating: 4.7, category: "Строительные расходники", color: "from-yellow-300 to-yellow-500", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
-  { id: 132, name: "Лента малярная 25мм", price: 320, oldPrice: 390, discount: 18, unit: "20 рулонов", supplier: "СтройОптом", delivery: "Сегодня", rating: 4.5, category: "Строительные расходники", color: "from-blue-200 to-blue-400", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
-  { id: 133, name: "Перфорированный уголок 3м", price: 1200, oldPrice: 1400, discount: 14, unit: "50 шт", supplier: "МеталлТорг", delivery: "Завтра", rating: 4.4, category: "Строительные расходники", color: "from-zinc-200 to-zinc-400", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
-  { id: 134, name: "Сетка штукатурная фасадная", price: 2100, oldPrice: 2500, discount: 16, unit: "5 рулонов", supplier: "ОтделкаПро", delivery: "2 дня", rating: 4.5, category: "Строительные расходники", color: "from-green-200 to-green-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-
-  // -- Шумоизоляция --------------------------------------------------------------
-  { id: 135, name: "Шумоизоляция Rockwool Акустик", price: 8900, oldPrice: 10200, discount: 13, unit: "6 плит", supplier: "ТеплоСтрой", delivery: "2 дня", rating: 4.7, category: "Шумоизоляция", color: "from-blue-300 to-blue-500", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
-  { id: 136, name: "Подложка под ламинат 3мм", price: 1800, oldPrice: 2100, discount: 14, unit: "10 рулонов", supplier: "УтеплМаркет", delivery: "Завтра", rating: 4.5, category: "Шумоизоляция", color: "from-gray-200 to-gray-400", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
-  { id: 137, name: "Виброизоляция СТК 4мм", price: 4200, oldPrice: 4900, discount: 14, unit: "5 листов", supplier: "ИзолТорг", delivery: "3 дня", rating: 4.4, category: "Шумоизоляция", color: "from-slate-400 to-slate-600", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-  { id: 138, name: "Звукоизоляция Шуманет-100", price: 6400, oldPrice: 7400, discount: 14, unit: "4 рулона", supplier: "МинватаОпт", delivery: "2 дня", rating: 4.6, category: "Шумоизоляция", color: "from-indigo-300 to-indigo-500", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
-
-  // -- Гидроизоляция -------------------------------------------------------------
-  { id: 139, name: "Гидроизоляция Технониколь", price: 5600, oldPrice: 6500, discount: 14, unit: "10 кв.м", supplier: "ГидроСтрой", delivery: "Завтра", rating: 4.7, category: "Гидроизоляция", color: "from-blue-400 to-blue-600", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
-  { id: 140, name: "Мастика битумная 20кг", price: 3200, oldPrice: 3700, discount: 14, unit: "4 ведра", supplier: "КровляМастер", delivery: "Сегодня", rating: 4.5, category: "Гидроизоляция", color: "from-gray-600 to-gray-800", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
-  { id: 141, name: "Пленка гидробарьер 70гр", price: 4100, oldPrice: 4800, discount: 15, unit: "2 рулона 75м", supplier: "ФасадПро", delivery: "2 дня", rating: 4.4, category: "Гидроизоляция", color: "from-sky-300 to-sky-500", img: "https://images.unsplash.com/photo-1607400201515-c2c41c08da2f?w=400&q=80" },
-  { id: 142, name: "Проникающая гидроизоляция Пенетрон", price: 7800, oldPrice: 9000, discount: 13, unit: "5 кг", supplier: "РемСнаб", delivery: "3 дня", rating: 4.8, category: "Гидроизоляция", color: "from-cyan-300 to-cyan-500", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
-
-  // -- Товары оптом --------------------------------------------------------------
-  { id: 143, name: "Цемент М400 оптом", price: 42000, oldPrice: 49000, discount: 14, unit: "100 мешков", supplier: "ЦементТорг", delivery: "2 дня", rating: 4.6, category: "Товары оптом", color: "from-slate-300 to-slate-500", img: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80" },
-  { id: 144, name: "Кирпич оптом от 1000 шт", price: 58000, oldPrice: 68000, discount: 15, unit: "1000 шт", supplier: "КирпичОпт", delivery: "3 дня", rating: 4.7, category: "Товары оптом", color: "from-red-300 to-red-500", img: "https://images.unsplash.com/photo-1564767655658-4e3f5a00d783?w=400&q=80" },
-  { id: 145, name: "Арматура оптом А500С", price: 85000, oldPrice: 98000, discount: 13, unit: "5 тонн", supplier: "СтальСнаб", delivery: "4 дня", rating: 4.5, category: "Товары оптом", color: "from-zinc-400 to-zinc-600", img: "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=400&q=80" },
-  { id: 146, name: "Пеноблок оптом D400", price: 64000, oldPrice: 75000, discount: 15, unit: "10 поддонов", supplier: "БлокОптТорг", delivery: "3 дня", rating: 4.6, category: "Товары оптом", color: "from-gray-200 to-gray-400", img: "https://images.unsplash.com/photo-1590593162201-f67611a18b87?w=400&q=80" },
-
-  // -- Плитка и керамогранит -----------------------------------------------------
-  { id: 147, name: "Керамогранит серый 60х60", price: 18500, oldPrice: 21500, discount: 14, unit: "10 кв.м", supplier: "КаменьСтрой", delivery: "3 дня", rating: 4.8, category: "Плитка и керамогранит", color: "from-gray-300 to-gray-500", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-  { id: 148, name: "Плитка настенная белая 30х60", price: 9200, oldPrice: 10800, discount: 15, unit: "10 кв.м", supplier: "СтройДом", delivery: "2 дня", rating: 4.6, category: "Плитка и керамогранит", color: "from-slate-100 to-slate-300", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-  { id: 149, name: "Мозаика стеклянная 30х30", price: 14800, oldPrice: 17200, discount: 14, unit: "5 кв.м", supplier: "КаменьСтрой", delivery: "4 дня", rating: 4.7, category: "Плитка и керамогранит", color: "from-blue-200 to-blue-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-  { id: 150, name: "Затирка Ceresit CE 33", price: 1200, oldPrice: 1450, discount: 17, unit: "10 упаковок", supplier: "РемСнаб", delivery: "Сегодня", rating: 4.5, category: "Плитка и керамогранит", color: "from-amber-200 to-amber-400", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
-
-  // -- Обои и декор стен ---------------------------------------------------------
-  { id: 151, name: "Обои флизелиновые под покраску", price: 4800, oldPrice: 5600, discount: 14, unit: "6 рулонов", supplier: "ДекорСтрой", delivery: "Завтра", rating: 4.6, category: "Обои и декор стен", color: "from-amber-100 to-amber-300", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
-  { id: 152, name: "Декоративная штукатурка Венецианка", price: 8900, oldPrice: 10400, discount: 14, unit: "5 кг", supplier: "ОтделкаПро", delivery: "2 дня", rating: 4.7, category: "Обои и декор стен", color: "from-yellow-200 to-yellow-400", img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80" },
-  { id: 153, name: "3D панели для стен", price: 6200, oldPrice: 7200, discount: 14, unit: "10 листов", supplier: "ДекорСтрой", delivery: "3 дня", rating: 4.5, category: "Обои и декор стен", color: "from-stone-200 to-stone-400", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
-  { id: 154, name: "Плинтус потолочный 2м", price: 980, oldPrice: 1200, discount: 18, unit: "20 шт", supplier: "СтройОптом", delivery: "Сегодня", rating: 4.4, category: "Обои и декор стен", color: "from-white to-gray-200", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-
-  // -- Лакокрасочные материалы ---------------------------------------------------
-  { id: 8, name: "Краска фасадная белая", price: 3200, oldPrice: 3800, discount: 16, unit: "10 л", supplier: "КраскаПро", delivery: "Завтра", rating: 4.6, category: "Лакокрасочные материалы", color: "from-blue-200 to-blue-400", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
-  { id: 155, name: "Краска интерьерная моющаяся", price: 2800, oldPrice: 3300, discount: 15, unit: "10 л", supplier: "КолорМаркет", delivery: "Сегодня", rating: 4.7, category: "Лакокрасочные материалы", color: "from-blue-100 to-blue-300", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
-  { id: 156, name: "Эмаль ПФ-115 белая", price: 1900, oldPrice: 2300, discount: 17, unit: "5 л", supplier: "СтройКраска", delivery: "Завтра", rating: 4.5, category: "Лакокрасочные материалы", color: "from-gray-100 to-gray-300", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
-  { id: 157, name: "Лак паркетный глянцевый", price: 3600, oldPrice: 4200, discount: 14, unit: "5 л", supplier: "ЛКМОпт", delivery: "2 дня", rating: 4.6, category: "Лакокрасочные материалы", color: "from-amber-300 to-amber-500", img: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80" },
-
-  // -- Электрика -----------------------------------------------------------------
-  { id: 158, name: "Кабель ВВГнг 3х2.5мм", price: 8900, oldPrice: 10400, discount: 14, unit: "100 м", supplier: "ЭлектроСнаб", delivery: "Завтра", rating: 4.7, category: "Электрика", color: "from-yellow-400 to-yellow-600", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
-  { id: 159, name: "Розетка двойная встраиваемая", price: 1200, oldPrice: 1450, discount: 17, unit: "10 шт", supplier: "ЭлектроМаркет", delivery: "Сегодня", rating: 4.6, category: "Электрика", color: "from-slate-200 to-slate-400", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80" },
-  { id: 160, name: "Автоматический выключатель 25А", price: 890, oldPrice: 1100, discount: 19, unit: "10 шт", supplier: "ЭлектроСнаб", delivery: "Завтра", rating: 4.8, category: "Электрика", color: "from-gray-300 to-gray-500", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
-  { id: 161, name: "Гофротруба ПВХ 20мм", price: 1600, oldPrice: 1900, discount: 16, unit: "50 м", supplier: "ЭлектроМаркет", delivery: "Сегодня", rating: 4.5, category: "Электрика", color: "from-orange-300 to-orange-500", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80" },
-
-
-];
+// Товары загружаются только из Google Sheets (см. allProducts)
 
 const CAT_ICONS = {
   1: ()=><svg viewBox="0 0 24 24" fill="none" className="w-7 h-7"><rect x="3" y="3" width="18" height="14" rx="2" stroke="#FACC15" strokeWidth="1.6"/><path d="M3 9h18M3 13h18" stroke="#FACC15" strokeWidth="1.2"/></svg>,
@@ -386,22 +189,16 @@ const CAT_ICONS = {
 };
 
 const catalogCategories = [
-  { id: 1, title: "Листовые материалы" },
-  { id: 2, title: "Сухие смеси и грунтовки" },
-  { id: 3, title: "Теплоизоляция" },
-  { id: 4, title: "Блоки и кирпич" },
-  { id: 5, title: "Металлопрокат" },
-  { id: 6, title: "Кровля" },
-  { id: 7, title: "Фасадные материалы" },
-  { id: 8, title: "Профиль и комплектующие" },
-  { id: 9, title: "Строительные расходники" },
-  { id: 10, title: "Шумоизоляция" },
-  { id: 11, title: "Гидроизоляция" },
-  { id: 12, title: "Товары оптом" },
-  { id: 13, title: "Плитка и керамогранит" },
-  { id: 14, title: "Обои и декор стен" },
-  { id: 15, title: "Лакокрасочные материалы" },
-  { id: 16, title: "Электрика" },
+  { id: 1, title: "Блоки и кирпич" },
+  { id: 2, title: "Сухие смеси" },
+  { id: 3, title: "Листовые материалы" },
+  { id: 4, title: "Кровля" },
+  { id: 5, title: "Теплоизоляция" },
+  { id: 6, title: "Металлопрокат" },
+  { id: 7, title: "Напольные покрытия" },
+  { id: 8, title: "Лакокрасочные материалы" },
+  { id: 9, title: "Фасадные материалы" },
+  { id: 10, title: "Гидроизоляция" },
 ];
 
 const EST_ICONS = {
@@ -1146,7 +943,7 @@ function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggle
         <div className="mb-3">
           <div className="text-main text-sm font-semibold mb-2 px-1">С этим также смотрят</div>
           <div className="flex gap-3 pb-1" style={{overflowX:"auto",WebkitOverflowScrolling:"touch",scrollSnapType:"x mandatory",scrollbarWidth:"none",msOverflowStyle:"none"}}>
-            {products.filter(p => p.id !== item.id).slice(0,5).map(p => (
+            {(sheetsOffers ? [] : []).filter(p => p.id !== item.id).slice(0,5).map(p => (
               <button key={p.id} onClick={() => onOpen(p)} className="shrink-0 w-36 rounded-[16px] card-bg-raw overflow-hidden text-left" style={{scrollSnapAlign:"start"}}>
                 <div className="relative h-24 overflow-hidden">
                   <img src={p.img} alt={p.name} className="h-full w-full object-cover"/>
@@ -1242,17 +1039,17 @@ function ProductCard({ item, isFavorite, onToggleFavorite, onAdd, onOpen, index 
 // -- Экраны --------------------------------------------------------------------
 function HomeProductGrid({ favorites, onToggleFavorite, onAdd, onOpen }) {
   const [visibleCount, setVisibleCount] = React.useState(8);
-  const visible = products.slice(0, visibleCount);
-  const hasMore = visibleCount < products.length;
+  const visible = (items||[]).slice(0, visibleCount);
+  const hasMore = visibleCount < (items||[]).length;
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
         {visible.map((item,i)=><div key={item.id} className="anim-fadeUp" style={{animationDelay:`${i*60}ms`}}><ProductCard item={item} isFavorite={favorites.has(item.id)} onToggleFavorite={onToggleFavorite} onAdd={onAdd} onOpen={onOpen}/></div>)}
       </div>
       {hasMore && (
-        <button onClick={()=>setVisibleCount(v=>Math.min(v+8, products.length))}
+        <button onClick={()=>setVisibleCount(v=>Math.min(v+8, (items||[]).length))}
           className="w-full rounded-2xl py-3.5 text-sm font-semibold text-yellow-400 border border-yellow-400/40 mt-2">
-          Показать ещё ({products.length - visibleCount} товаров)
+          Показать ещё ({(items||[]).length - visibleCount} товаров)
         </button>
       )}
     </>
@@ -1347,7 +1144,7 @@ function BannerCarousel() {
 
 function HomeScreen({ favorites, onToggleFavorite, onAdd, onOpen, allProducts: ap }) {
   const productList = React.useMemo(() => {
-    const all = ap || products;
+    const all = ap || [];
     // Берём по 2 товара из каждой категории для разнообразия
     const cats: Record<string,any[]> = {};
     all.forEach(p => { (cats[p.category] = cats[p.category]||[]).push(p); });
@@ -1750,7 +1547,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
           <div className="flex items-center justify-between pt-1 border-t border-white/5">
             <span className="text-xs text-slate-500">{o.date}</span>
             {o.status!=="В пути" && (
-              <button onClick={()=>{const p=products.find(pr=>o.name.includes(pr.name));if(p)onAdd(p);}} className="text-xs font-semibold text-yellow-400 border border-yellow-400 rounded-lg px-3 py-1">Повторить заказ</button>
+              <button onClick={()=>{/* повторить заказ - requires Sheets data */}} className="text-xs font-semibold text-yellow-400 border border-yellow-400 rounded-lg px-3 py-1">Повторить заказ</button>
             )}
             {o.status==="В пути" && (
               <button className="text-xs font-semibold text-yellow-400 border-2 border-yellow-400 rounded-lg px-3 py-1">Связаться с курьером</button>
@@ -1764,8 +1561,8 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
   if (section==="purchases") {
     const [purchSearch, setPurchSearch] = React.useState("");
     const filteredPurch = purchSearch.trim()
-      ? products.filter(p => p.name.toLowerCase().includes(purchSearch.toLowerCase()) || p.category.toLowerCase().includes(purchSearch.toLowerCase()))
-      : products.slice(0,6);
+      ? []
+      : [];
     return (
     <div style={{display:"flex",flexDirection:"column",gap:12,paddingBottom:96}}>
       {/* Поиск */}
@@ -1871,7 +1668,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
   if (section==="history") return (
     <div style={{display:"flex",flexDirection:"column",gap:12,paddingBottom:96}}>
       <div className="text-sub text-xs px-1">Недавно просмотренные товары</div>
-      {products.map((p,i)=>(
+      {[].map((p,i)=>(
         <button key={p.id} onClick={()=>onOpenProduct(p)} className="card-bg-raw w-full rounded-[20px] p-4 flex items-center gap-3 text-left">
           <div className="h-14 w-14 shrink-0 rounded-2xl overflow-hidden">
             <img src={p.img} alt={p.name} className="h-full w-full object-cover"/>
@@ -2436,8 +2233,8 @@ export default function App() {
   }, []);
 
   const allProducts = React.useMemo(() => {
-    if (!sheetsProducts || sheetsProducts.length === 0) return products;
-    // Get best price from offers for each product
+    // Только товары из Google Sheets — статические данные не используются
+    if (!sheetsProducts || sheetsProducts.length === 0) return [];
     const getProductPrice = (productId) => {
       if (!sheetsOffers) return 0;
       const offs = sheetsOffers.filter(o => Number(o.productId) === Number(productId));
@@ -2445,8 +2242,7 @@ export default function App() {
       const prices = offs.map(o => Number(o.price)).filter(p => p > 0);
       return prices.length ? Math.min(...prices) : 0;
     };
-
-    const sheetsFormatted = sheetsProducts.map(p => {
+    return sheetsProducts.map(p => {
       const bestPrice = getProductPrice(p.id);
       return {
         id: Number(p.id),
@@ -2463,8 +2259,7 @@ export default function App() {
         img: (p.image || p.img || "").trim() || "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&q=80",
       };
     });
-    return [...sheetsFormatted, ...products.filter(p => !sheetsFormatted.find(s => s.id === p.id))];
-  }, [sheetsProducts]);
+  }, [sheetsProducts, sheetsOffers]);
 
   const switchTab = (t) => { setTab(t); setCatalogCategory(null); setEstimateTool("main"); setProfileSection("main"); setSearchOpen(false); setOpenProduct(null); };
 
