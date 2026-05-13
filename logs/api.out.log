@@ -1,0 +1,6 @@
+
+> strovo-app@0.0.0 server
+> node server.js
+
+Auth API started on http://localhost:3001
+SQLite database: data\strovo.sqlite
