@@ -4,30 +4,6 @@ type Availability = "low" | "medium" | "high";
 type Tab = "home" | "catalog" | "estimate" | "favorites" | "cart" | "profile";
 type ProfileSection = "main" | "orders" | "purchases" | "settings" | "history";
 type EstimateTool = "main" | "tile" | "wallpaper" | "paint" | "putty" | "drywall" | "laminate";
-type AuthUser = {
-  id: number;
-  name: string;
-  email?: string | null;
-  phone?: string | null;
-  createdAt?: string;
-};
-
-const AUTH_TOKEN_KEY = "strovo_auth_token";
-
-async function authRequest(path: string, options: RequestInit = {}) {
-  const token = localStorage.getItem(AUTH_TOKEN_KEY);
-  const res = await fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Ошибка запроса");
-  return data;
-}
 
 type SupplierOffer = {
   id: string;
@@ -84,12 +60,7 @@ type Supplier = {
 // Replace fetchOffers() body with API call when ready for production
 // Офферы поставщиков загружаются из Google Sheets
 
-// -- Data Access Layer ------------------------------------------------------
-function fetchOffers(productId): SupplierOffer[] {
-  // In production: replace with API call
-  // return await api.get(`/offers?productId=${productId}`)
-  return ALL_SUPPLIER_OFFERS.filter(o => o.productId === productId);
-}
+// Офферы загружаются только из Google Sheets
 
 // ── Google Sheets Live Data ────────────────────────────────────────────────
 const SHEETS_URL = "https://script.google.com/macros/s/AKfycbx8q89PwQIqXuZVQKns8tn1SU62hCfoDKxD4JefihI7HactUaChbFqAkNVQf986Ftw/exec";
@@ -500,7 +471,7 @@ function SplashScreen({ onDone }) {
               </div>
             </div>
           </div>
-         ) : (
+        ) : (
           <div className="flex flex-col items-center gap-8 text-center w-full" style={{animation:"fadeUp 0.35s ease-out both"}}>
             {/* Иконка БЕЗ фона */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -594,38 +565,22 @@ function TermsModal({ onClose }) {
 
 function LoginScreen({ onDone, onBack }) {
   const [mode, setMode] = useState<"phone"|"email">("phone");
-  const [authMode, setAuthMode] = useState<"login"|"register">("login");
-  const [name, setName] = useState("");
   const [value, setValue] = useState("");
-  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<"input"|"code">("input");
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [showTerms, setShowTerms] = useState(false);
 
-  const handleSubmit = async () => {
-    if(!value.trim() || password.length < 6 || (authMode === "register" && !name.trim())) return;
+  const handleSend = () => {
+    if(!value.trim()) return;
     setLoading(true);
-    setError("");
-    try {
-      const payload = authMode === "register"
-        ? {
-            name: name.trim(),
-            email: mode === "email" ? value.trim() : undefined,
-            phone: mode === "phone" ? value : undefined,
-            password,
-          }
-        : { login: value.trim(), password };
-      const data = await authRequest(`/api/auth/${authMode}`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      localStorage.setItem(AUTH_TOKEN_KEY, data.token);
-      onDone(data.user);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось войти");
-    } finally {
-      setLoading(false);
-    }
+    setTimeout(() => { setLoading(false); setStep("code"); }, 1200);
+  };
+
+  const handleVerify = () => {
+    if(code.length < 4) return;
+    setLoading(true);
+    setTimeout(() => { setLoading(false); onDone(); }, 1000);
   };
 
   const formatPhone = (v: string) => {
@@ -638,106 +593,6 @@ function LoginScreen({ onDone, onBack }) {
     if(digits.length > 9) r += '-' + digits.slice(9,11);
     return r;
   };
-  const [code, setCode] = useState("");
-  const setStep = (_step: "input"|"code") => {};
-  const handleSend = handleSubmit;
-  const handleVerify = handleSubmit;
-
-  return (
-    <div className="screen-bg" style={{height:"100dvh",display:"flex",flexDirection:"column",
-      paddingTop:"env(safe-area-inset-top)",paddingBottom:"env(safe-area-inset-bottom)"}}>
-      {showTerms && <TermsModal onClose={() => setShowTerms(false)}/>}
-
-      <div style={{padding:"16px 24px 0"}}>
-        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 text-sm">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-            <path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Назад
-        </button>
-      </div>
-
-      <div style={{flex:1,display:"flex",flexDirection:"column",padding:"32px 24px 0"}}>
-        <div className="flex items-center gap-3 mb-10">
-          <StrovoLogo size={36}/>
-          <span className="text-main text-xl font-bold">Строво</span>
-        </div>
-
-        <div className="text-main text-2xl font-bold mb-2">
-          {authMode === "login" ? "Войти в аккаунт" : "Создать аккаунт"}
-        </div>
-        <div className="text-slate-400 text-sm mb-6">Данные будут сохраняться в вашем профиле</div>
-
-        <div className="flex gap-1 rounded-2xl p-1 mb-4" style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}}>
-          {(["login","register"] as const).map(m => (
-            <button key={m} onClick={() => { setAuthMode(m); setError(""); }}
-              className="flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all"
-              style={{background: authMode===m ? "#FACC15" : "transparent", color: authMode===m ? "#000" : "var(--color-text-secondary)"}}>
-              {m === "login" ? "Вход" : "Регистрация"}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-1 rounded-2xl p-1 mb-4" style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}}>
-          {(["phone","email"] as const).map(m => (
-            <button key={m} onClick={() => { setMode(m); setValue(""); setError(""); }}
-              className="flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all"
-              style={{background: mode===m ? "#FACC15" : "transparent", color: mode===m ? "#000" : "var(--color-text-secondary)"}}>
-              {m === "phone" ? "Телефон" : "Email"}
-            </button>
-          ))}
-        </div>
-
-        {authMode === "register" && (
-          <div className="relative mb-3">
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Ваше имя"
-              className="w-full rounded-2xl px-4 py-4 text-main text-base outline-none"
-              style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}} />
-          </div>
-        )}
-
-        <div className="relative mb-3">
-          <input
-            type={mode==="email" ? "email" : "tel"}
-            value={value}
-            onChange={e => { setValue(mode==="phone" ? formatPhone(e.target.value) : e.target.value); setError(""); }}
-            placeholder={mode==="phone" ? "+7 (___) ___-__-__" : "example@mail.ru"}
-            className="w-full rounded-2xl px-4 py-4 text-main text-base outline-none"
-            style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}}
-            autoFocus
-          />
-        </div>
-
-        <input type="password" value={password} onChange={e => { setPassword(e.target.value); setError(""); }}
-          placeholder="Пароль"
-          className="w-full rounded-2xl px-4 py-4 text-main text-base outline-none mb-3"
-          style={{background:"var(--btn-bg)",border:"1px solid var(--btn-border)"}} />
-
-        <div className="text-slate-500 text-xs mb-5">
-          Пароль минимум 6 символов. Продолжая, вы соглашаетесь с <button onClick={() => setShowTerms(true)} className="text-yellow-400 underline underline-offset-2">условиями использования</button>
-        </div>
-
-        {error && <div className="mb-4 rounded-2xl bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</div>}
-
-        <button onClick={handleSubmit} disabled={!value.trim() || password.length < 6 || (authMode === "register" && !name.trim()) || loading}
-          className="w-full rounded-2xl bg-yellow-400 py-4 font-bold text-black text-base disabled:opacity-50">
-          {loading ? "Подождите..." : authMode === "login" ? "Войти" : "Зарегистрироваться"}
-        </button>
-
-        <div className="flex items-center gap-4 my-6">
-          <div className="flex-1 h-px bg-white/10"/>
-          <span className="text-slate-500 text-sm">или</span>
-          <div className="flex-1 h-px bg-white/10"/>
-        </div>
-
-        <button onClick={() => onDone(null)}
-          className="w-full rounded-2xl py-4 font-semibold text-slate-400 text-sm"
-          style={{border:"1px solid var(--btn-border)"}}>
-          Продолжить без входа
-        </button>
-      </div>
-    </div>
-  );
 
   return (
     <div className="screen-bg" style={{height:"100dvh",display:"flex",flexDirection:"column",
@@ -747,7 +602,7 @@ function LoginScreen({ onDone, onBack }) {
 
       {/* Назад */}
       <div style={{padding:"16px 24px 0"}}>
-        <button onClick={onBack}
+        <button onClick={step==="code" ? () => setStep("input") : onBack}
           className="flex items-center gap-2 text-slate-400 text-sm">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
             <path d="M13 4L7 10l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -763,7 +618,7 @@ function LoginScreen({ onDone, onBack }) {
           <span className="text-main text-xl font-bold">Строво</span>
         </div>
 
-        {(
+        {step === "input" ? (
           <>
             <div className="text-main text-2xl font-bold mb-2">Войти или создать<br/>аккаунт</div>
             <div className="text-slate-400 text-sm mb-8">Без регистрации данные не сохраняются</div>
@@ -814,8 +669,7 @@ function LoginScreen({ onDone, onBack }) {
               Продолжить без входа
             </button>
           </>
-        )}
-        {false && (
+        ) : (
           <>
             <div className="text-main text-2xl font-bold mb-2">Введите код</div>
             <div className="text-slate-400 text-sm mb-8">
@@ -915,10 +769,7 @@ function TopBarTitle({ title, onSearchOpen }) {
 // -- Карточка товара (детальный экран) -----------------------------------------
 function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggleFavorite, sheetsOffers }) {
   // -- REAL COMPARISON ENGINE ---------------------------------------------
-  const engineProductId = PRODUCT_ID_MAP[item.id];
-
   const offers = React.useMemo(() => {
-    // 1. Sheets offers matched by numeric item.id
     if (sheetsOffers && sheetsOffers.length > 0) {
       const live = sheetsOffers
         .filter(o => Number(o.productId) === Number(item.id))
@@ -935,10 +786,8 @@ function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggle
         }));
       if (live.length > 0) return live;
     }
-    // 2. Fallback to local mock data
-    if (engineProductId) return fetchOffers(engineProductId);
     return [];
-  }, [item.id, engineProductId, sheetsOffers]);
+  }, [item.id, sheetsOffers]);
 
   const comparison = React.useMemo(() => runComparison(offers), [offers]);
 
@@ -1616,15 +1465,16 @@ function CartScreen({ cartItems, onChangeQty, onSetQty, onRemove, city, onChecko
   );
 }
 
-function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, onAdd, onOpenProduct, placedOrders=[], authUser, onLogout }) {
-  const profileName = authUser?.name || "Гость";
-  const profileRole = authUser ? "Пользователь" : "Без входа";
-  const profilePhone = authUser?.phone ? `+${authUser.phone}` : "Не указан";
-  const profileEmail = authUser?.email || "Не указан";
-
+function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, onAdd, onOpenProduct, placedOrders=[] }) {
   if (section==="orders") {
     const [orderSearch, setOrderSearch] = React.useState("");
-    const staticOrders = [];
+    const staticOrders = [
+      {id:"#1042",status:"В пути",date:"Сегодня, 18:00-20:00",name:"Кирпич облицовочный . 200 шт",supplier:"СтройБаза 24",price:11980,active:true,color:"from-yellow-400 to-amber-500"},
+      {id:"#1041",status:"Доставлен",date:"18 марта 2026",name:"Цемент М500 . 10 мешков",supplier:"ПрофСнаб",price:5400,active:false,color:"from-slate-300 to-slate-500"},
+      {id:"#1038",status:"Доставлен",date:"12 марта 2026",name:"Профиль металлический . 30 шт",supplier:"МеталлТорг",price:3900,active:false,color:"from-zinc-200 to-zinc-400"},
+      {id:"#1035",status:"Доставлен",date:"5 марта 2026",name:"Гипсокартон влагостойкий . 15 листов",supplier:"СнабМаркет",price:8300,active:false,color:"from-emerald-300 to-emerald-500"},
+    ];
+    // Новые заказы из checkout + статические
     const newOrders = placedOrders.map(o=>({...o, status:"Оформлен", active:false}));
     const allOrders = [...newOrders, ...staticOrders];
     const q = orderSearch.trim().toLowerCase();
@@ -1714,8 +1564,8 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
       {/* Итого потрачено */}
       <div className="card-bg rounded-[20px] p-4">
         <div className="text-xs text-slate-400 mb-1">Всего потрачено</div>
-        <div className="text-2xl font-bold text-yellow-400">0 ₽</div>
-        <div className="text-xs text-slate-500 mt-0.5">0 покупок</div>
+        <div className="text-2xl font-bold text-yellow-400">29 580 ₽</div>
+        <div className="text-xs text-slate-500 mt-0.5">8 покупок . март 2026</div>
       </div>
       {filteredPurch.length===0 && <div className="text-center text-sub text-sm py-4">Ничего не найдено</div>}
       {filteredPurch.map((p,i)=>(
@@ -1754,7 +1604,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
         {/* Профиль */}
         <div className="card-bg rounded-[20px] p-4 space-y-3">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Личные данные</div>
-          {[["Имя",profileName],["Статус",profileRole],["Телефон",profilePhone],["Email",profileEmail]].map(([k,v])=>(
+          {[["Имя","Андрей А."],["Должность","Прораб"],["Телефон","+7 (999) 123-45-67"],["Email","andrey@strovo.ru"]].map(([k,v])=>(
             <div key={k} className="flex items-center justify-between py-2" style={{borderBottom:"1px solid var(--row-border)"}}>
               <span className="text-sub text-sm">{k}</span>
               <span className="text-main text-sm">{v}</span>
@@ -1780,17 +1630,26 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
           ))}
         </div>
 
-        {/* О приложении */}
+        {/* Оплата */}
         <div className="card-bg rounded-[20px] p-4 space-y-3">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Способы оплаты</div>
+          <div className="flex items-center gap-3 py-1">
+            <div className="flex h-10 w-14 items-center justify-center rounded-xl bg-blue-600 text-xs font-bold text-white">VISA</div>
+            <div className="flex-1">
+              <div className="text-main text-sm">**** **** **** 4521</div>
+              <div className="text-sub text-xs">Основная карта . до 12/27</div>
+            </div>
+            <button className="text-xs font-semibold text-red-400 border border-red-400/40 rounded-lg px-3 py-1">Удалить</button>
+          </div>
           <button className="w-full rounded-xl py-2.5 text-sm text-slate-400" style={{border:"1.5px dashed var(--btn-border)"}}>+ Добавить карту</button>
         </div>
 
+        {/* О приложении */}
         <div className="card-bg rounded-[20px] p-4 space-y-2">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">О приложении</div>
           <div className="flex justify-between py-1"><span className="text-sub text-sm">Версия</span><span className="text-main text-sm">1.0.0 (MVP)</span></div>
           <div className="flex justify-between py-1"><span className="text-sub text-sm">Разработчик</span><span className="text-main text-sm">Strovo Tech</span></div>
-          {authUser && <button onClick={onLogout} className="w-full mt-2 rounded-xl bg-red-500/10 py-2.5 text-sm font-semibold text-red-400">Выйти из аккаунта</button>}
+          <button className="w-full mt-2 rounded-xl bg-red-500/10 py-2.5 text-sm font-semibold text-red-400">Выйти из аккаунта</button>
         </div>
       </div>
     );
@@ -1828,9 +1687,9 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
             <svg width="40" height="40" viewBox="0 0 20 20" fill="none"><path d="M2 20 C2 14 5 12 10 12 C15 12 18 14 18 20Z" fill="#FACC15"/><circle cx="10" cy="10" r="3.2" fill="#FACC15"/><path d="M7.2 10 Q7.2 5 10 5 Q12.8 5 12.8 10Z" fill="#FACC15"/><rect x="5.5" y="9.3" width="9" height="1.4" rx="0.7" fill="#FACC15"/></svg>
           </div>
           <div>
-            <div className="text-main text-lg font-bold">{profileName}</div>
-            <div className="text-sub text-sm">{profileRole} . {city}</div>
-            <div className="mt-1 text-xs text-yellow-400">{authUser ? "Аккаунт подключен" : "Гостевой режим"}</div>
+            <div className="text-main text-lg font-bold">Андрей А.</div>
+            <div className="text-sub text-sm">Прораб . {city}</div>
+            <div className="mt-1 text-xs text-yellow-400">★ Проверенный пользователь</div>
           </div>
         </div>
       </div>
@@ -1843,8 +1702,8 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
         ))}
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="card-bg rounded-[24px] p-4"><div className="text-sub text-sm">Объекты</div><div className="text-main mt-2 text-2xl font-bold">0</div></div>
-        <div className="card-bg rounded-[24px] p-4"><div className="text-sub text-sm">Сметы</div><div className="text-main mt-2 text-2xl font-bold">0</div></div>
+        <div className="card-bg rounded-[24px] p-4"><div className="text-sub text-sm">Объекты</div><div className="text-main mt-2 text-2xl font-bold">5</div></div>
+        <div className="card-bg rounded-[24px] p-4"><div className="text-sub text-sm">Сметы</div><div className="text-main mt-2 text-2xl font-bold">9</div></div>
       </div>
       {/* Тема */}
       <div className="rounded-[24px] card-bg p-4 flex items-center justify-between">
@@ -2338,14 +2197,13 @@ const profileTitles: Record<ProfileSection,string> = {
 
 
 export default function App() {
-  const [stage, setStage] = useState<"city"|"splash"|"main"|"auth">("city");
+  const [stage, setStage] = useState<"city"|"splash"|"main">("city");
   const [darkMode, setDarkMode] = useState(true);
   const [city, setCity] = useState("");
   const [tab, setTab] = useState<Tab>("home");
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
   const [cartItems, setCartItems] = useState<{product:any; qty:number}[]>([]);
   const [placedOrders, setPlacedOrders] = useState<{id:string;date:string;name:string;unit:string;supplier:string;price:number;color:string;delivery:string}[]>([]);
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const orderCounterRef = React.useRef(1043);
   const [catalogCategory, setCatalogCategory] = useState<string | null>(null);
   const [estimateTool, setEstimateTool] = useState<EstimateTool>("main");
@@ -2362,13 +2220,6 @@ export default function App() {
       if (data?.offers?.length) setSheetsOffers(data.offers);
       if (data?.products?.length) setSheetsProducts(data.products);
     });
-  }, []);
-
-  React.useEffect(() => {
-    if (!localStorage.getItem(AUTH_TOKEN_KEY)) return;
-    authRequest("/api/auth/me")
-      .then(data => setAuthUser(data.user))
-      .catch(() => localStorage.removeItem(AUTH_TOKEN_KEY));
   }, []);
 
   const allProducts = React.useMemo(() => {
@@ -2463,12 +2314,10 @@ export default function App() {
 *::-webkit-scrollbar{display:none!important}*{scrollbar-width:none!important;-ms-overflow-style:none!important}.topbar-bg{padding-top:env(safe-area-inset-top)!important}.navbar-bg{padding-bottom:env(safe-area-inset-bottom)}@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}@keyframes slideInLeft{from{transform:translateX(-100%)}to{transform:translateX(0)}}@keyframes slideOutLeft{from{transform:translateX(0)}to{transform:translateX(-100%)}}@keyframes slideOutRight{from{transform:translateX(0)}to{transform:translateX(100%)}}@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes scaleIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}.anim-fadeUp{animation:fadeUp 0.3s ease-out both}.anim-fadeIn{animation:fadeIn 0.25s ease-out both}.anim-scaleIn{animation:scaleIn 0.2s ease-out both}.product-card-wrap{transition:transform 0.18s ease,box-shadow 0.18s ease,border-color 0.18s ease}.product-card-wrap:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(250,204,21,0.12)}.product-card-wrap:active{transform:scale(0.98)}.banner-slide{transition:transform 0.4s cubic-bezier(0.4,0,0.2,1),opacity 0.4s ease}`}</style>
       <div data-theme={darkMode?"dark":"light"} className={`relative min-h-screen screen-bg`}>
 
-          {stage==="auth" ? (
-            <LoginScreen onDone={(user)=>{ if (user) setAuthUser(user); setStage("main"); }} onBack={()=>setStage("main")}/>
-          ) : stage==="city" ? (
+          {stage==="city" ? (
             <CityScreen onDone={c=>{setCity(c);setStage("splash");}}/>
           ) : stage==="splash" ? (
-            <SplashScreen onDone={(user)=>{ if (user) setAuthUser(user); setStage("main"); }}/>
+            <SplashScreen onDone={()=>setStage("main")}/>
           ) : searchOpen ? (
             <SearchScreen onClose={()=>setSearchOpen(false)} onAdd={addToCart} favorites={favorites} onToggleFavorite={toggleFavorite} onOpenProduct={setOpenProduct} allProducts={allProducts}/>
           ) : returnProduct ? (
@@ -2504,7 +2353,7 @@ export default function App() {
                 {tab==="estimate" && <EstimateScreen tool={estimateTool} onOpenTool={setEstimateTool}/>}
                 {tab==="favorites" && <FavoritesScreen favorites={favorites} onToggleFavorite={toggleFavorite} onAdd={addToCart} onOpen={setOpenProduct} allProducts={allProducts}/>}
                 {tab==="cart" && <CartScreen cartItems={cartItems} onChangeQty={changeQty} onSetQty={setQty} onRemove={removeFromCart} city={city} onCheckout={()=>setShowCheckout(true)}/>}
-                {tab==="profile" && <ProfileScreen section={profileSection} onOpenSection={setProfileSection} city={city} darkMode={darkMode} onToggleTheme={()=>setDarkMode(d=>!d)} onAdd={addToCart} onOpenProduct={setOpenProduct} placedOrders={placedOrders} authUser={authUser} onLogout={()=>{ localStorage.removeItem(AUTH_TOKEN_KEY); setAuthUser(null); setProfileSection("main"); setTab("profile"); setStage("auth"); }}/>}
+                {tab==="profile" && <ProfileScreen section={profileSection} onOpenSection={setProfileSection} city={city} darkMode={darkMode} onToggleTheme={()=>setDarkMode(d=>!d)} onAdd={addToCart} onOpenProduct={setOpenProduct} placedOrders={placedOrders}/>}
               </div>
               <div className="navbar-bg fixed bottom-0 left-0 right-0 z-50">
                 <div className="grid h-[58px] grid-cols-6">
