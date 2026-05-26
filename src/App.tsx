@@ -219,7 +219,7 @@ const cities = ["Москва","Санкт-Петербург","Оренбург
 function formatPrice(v) { return new Intl.NumberFormat("ru-RU").format(v) + " ₽"; }
 
 // -- Логотип -------------------------------------------------------------------
-function StrovoLogo({ size = 36 }) {
+function StroykompasLogo({ size = 36 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
       <g transform="translate(0,512) scale(0.1,-0.1)" fill="#FACC15" stroke="none">
@@ -325,7 +325,7 @@ function CityScreen({ onDone }) {
   return (
     <div className="screen-bg flex flex-col px-5" style={{height:"100dvh",paddingTop:"max(48px, env(safe-area-inset-top))",paddingBottom:"max(24px, env(safe-area-inset-bottom))"}}>
       <div className="flex flex-col items-center gap-3 mb-6">
-        <StrovoLogo size={52} />
+        <StroykompasLogo size={52} />
         <div className="text-main text-2xl font-bold">Ваш город?</div>
         <div className="text-sm text-slate-400 text-center">Покажем актуальные цены и доставку</div>
       </div>
@@ -382,7 +382,7 @@ const SPLASH_SLIDES = [
       </svg>
     ),
     title: "Сравни цены за секунды",
-    sub: "Строво показывает предложения от поставщиков и автоматически выбирает лучшее",
+    sub: "Стройкомпас показывает предложения от поставщиков и автоматически выбирает лучшее",
   },
   {
     icon: () => (
@@ -462,9 +462,9 @@ function SplashScreen({ onDone }) {
         key={slide}>
         {isWelcome ? (
           <div className="flex flex-col items-center gap-6 text-center" style={{animation:"fadeUp 0.4s ease-out both"}}>
-            <StrovoLogo size={96}/>
+            <StroykompasLogo size={96}/>
             <div>
-              <div className="text-main text-4xl font-bold tracking-tight mb-2">Строво</div>
+              <div className="text-main text-4xl font-bold tracking-tight mb-2">Стройкомпас</div>
               <div className="text-yellow-400 text-sm font-semibold tracking-widest uppercase mb-5">стройка без переплат</div>
               <div className="text-slate-400 text-sm leading-relaxed max-w-[260px]">
                 Агрегатор стройматериалов для прорабов и бригадиров. Находим лучшие цены автоматически.
@@ -525,13 +525,13 @@ function TermsModal({ onClose }) {
         <div className="hide-scrollbar overflow-y-auto px-5 pb-10" style={{fontSize:13,lineHeight:1.7,color:"var(--color-text-secondary)"}}>
           <p style={{marginBottom:12,fontSize:11,color:"#64748b"}}>Последнее обновление: май 2025</p>
 
-          <p style={{marginBottom:16}}>Настоящее Пользовательское соглашение регулирует отношения между ИП Федоров А.С. (далее — «Строво», «мы») и пользователем мобильного приложения «Строво» (далее — «вы», «пользователь»).</p>
+          <p style={{marginBottom:16}}>Настоящее Пользовательское соглашение регулирует отношения между ИП Федоров А.С. (далее — «Стройкомпас», «мы») и пользователем мобильного приложения «Стройкомпас» (далее — «вы», «пользователь»).</p>
 
           <div className="text-main font-semibold" style={{marginBottom:6}}>1. Принятие условий</div>
           <p style={{marginBottom:16}}>Используя приложение, вы подтверждаете, что прочитали, поняли и согласны с настоящим соглашением. Если вы не согласны с условиями — пожалуйста, прекратите использование приложения.</p>
 
           <div className="text-main font-semibold" style={{marginBottom:6}}>2. Описание сервиса</div>
-          <p style={{marginBottom:16}}>«Строво» — агрегатор строительных материалов, позволяющий сравнивать цены поставщиков и оформлять заказы. Мы не являемся продавцом товаров — мы предоставляем платформу для взаимодействия покупателей и поставщиков.</p>
+          <p style={{marginBottom:16}}>«Стройкомпас» — агрегатор строительных материалов, позволяющий сравнивать цены поставщиков и оформлять заказы. Мы не являемся продавцом товаров — мы предоставляем платформу для взаимодействия покупателей и поставщиков.</p>
 
           <div className="text-main font-semibold" style={{marginBottom:6}}>3. Регистрация и аккаунт</div>
           <p style={{marginBottom:16}}>Для полного доступа к функциям необходима регистрация с указанием номера телефона или email. Вы несёте ответственность за сохранность данных своего аккаунта. Передача аккаунта третьим лицам запрещена.</p>
@@ -540,7 +540,7 @@ function TermsModal({ onClose }) {
           <p style={{marginBottom:16}}>Мы обрабатываем ваши данные (имя, контакты, история заказов, адреса доставки) для обеспечения работы сервиса. Данные не передаются третьим лицам без вашего согласия, за исключением случаев, предусмотренных законодательством РФ. Подробнее — в Политике конфиденциальности.</p>
 
           <div className="text-main font-semibold" style={{marginBottom:6}}>5. Заказы и оплата</div>
-          <p style={{marginBottom:16}}>Оформляя заказ, вы заключаете договор купли-продажи с конкретным поставщиком. «Строво» не несёт ответственности за качество товаров, сроки доставки и действия поставщиков. Все вопросы по заказу решаются напрямую с поставщиком.</p>
+          <p style={{marginBottom:16}}>Оформляя заказ, вы заключаете договор купли-продажи с конкретным поставщиком. «Стройкомпас» не несёт ответственности за качество товаров, сроки доставки и действия поставщиков. Все вопросы по заказу решаются напрямую с поставщиком.</p>
 
           <div className="text-main font-semibold" style={{marginBottom:6}}>6. Запрещённые действия</div>
           <p style={{marginBottom:16}}>Запрещено: использовать приложение в незаконных целях; публиковать ложную информацию; пытаться получить несанкционированный доступ к системам сервиса; использовать автоматизированные боты для парсинга данных.</p>
@@ -555,7 +555,7 @@ function TermsModal({ onClose }) {
           <p style={{marginBottom:16}}>Мы вправе изменять условия соглашения, уведомляя об этом через приложение. Продолжение использования после уведомления означает согласие с новыми условиями.</p>
 
           <div className="text-main font-semibold" style={{marginBottom:6}}>10. Контакты</div>
-          <p style={{marginBottom:16}}>По вопросам соглашения: support@strovo.ru</p>
+          <p style={{marginBottom:16}}>По вопросам соглашения: support@stroykompas.ru</p>
         </div>
       </div>
     </div>
@@ -614,8 +614,8 @@ function LoginScreen({ onDone, onBack }) {
       <div style={{flex:1,display:"flex",flexDirection:"column",padding:"32px 24px 0"}}>
         {/* Лого */}
         <div className="flex items-center gap-3 mb-10">
-          <StrovoLogo size={36}/>
-          <span className="text-main text-xl font-bold">Строво</span>
+          <StroykompasLogo size={36}/>
+          <span className="text-main text-xl font-bold">Стройкомпас</span>
         </div>
 
         {step === "input" ? (
@@ -841,11 +841,11 @@ function ProductDetailScreen({ item, onBack, onAdd, onOpen, isFavorite, onToggle
             {/* -- SELECTED OFFER BLOCK ----------------------------------- */}
             <div className={`rounded-[20px] card-bg-raw p-4 mb-3 transition-all ${selectedRank === 0 ? "border-2 border-yellow-400" : "border border-yellow-400/20"}`}
               style={selectedRank === 0 ? {boxShadow:"0 0 20px rgba(250,204,21,0.15)"} : undefined}>
-              {/* Рекомендация Strovo - только для лучшего предложения */}
+              {/* Рекомендация Stroykompas - только для лучшего предложения */}
               {selectedRank === 0 && (
                 <div className="flex items-center gap-2 mb-3 -mx-4 -mt-4 px-4 pt-3 pb-2.5 rounded-t-[18px] bg-yellow-400/10 border-b border-yellow-400/20">
-                  <StrovoLogo size={18}/>
-                  <span className="text-xs font-bold text-yellow-400">Рекомендация Строво</span>
+                  <StroykompasLogo size={18}/>
+                  <span className="text-xs font-bold text-yellow-400">Рекомендация Стройкомпас</span>
                   <span className="text-[10px] text-slate-500 ml-auto">рассчитано автоматически</span>
                 </div>
               )}
@@ -1050,7 +1050,7 @@ function HomeProductGrid({ favorites, onToggleFavorite, onAdd, onOpen }) {
 const BANNERS = [
   { gradient:"from-[#1a2f4a] via-[#1e3a5f] to-[#243a6b]", tag:"🔥 Акция", title:"Скидки на\nстройматериалы", sub:"Сравнивай поставщиков и находи выгодные предложения", icon:"🏗️" },
   { gradient:"from-[#1a3020] via-[#1f3d25] to-[#1a4a2e]", tag:"⚡ Быстрая доставка", title:"Получи завтра\nиз Оренбурга", sub:"Более 50 поставщиков готовы отгрузить уже сегодня", icon:"🚚" },
-  { gradient:"from-[#3c2215] via-[#5b3018] to-[#7a4021]", tag:"💰 Экономия", title:"Алгоритм Строво\nнайдёт лучшую цену", sub:"Автоматически сравниваем предложения по 4 параметрам", icon:"📊" },
+  { gradient:"from-[#3c2215] via-[#5b3018] to-[#7a4021]", tag:"💰 Экономия", title:"Алгоритм Стройкомпас\nнайдёт лучшую цену", sub:"Автоматически сравниваем предложения по 4 параметрам", icon:"📊" },
 ];
 
 function BannerCarousel() {
@@ -1604,7 +1604,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
         {/* Профиль */}
         <div className="card-bg rounded-[20px] p-4 space-y-3">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Личные данные</div>
-          {[["Имя","Андрей А."],["Должность","Прораб"],["Телефон","+7 (999) 123-45-67"],["Email","andrey@strovo.ru"]].map(([k,v])=>(
+          {[["Имя","Андрей А."],["Должность","Прораб"],["Телефон","+7 (999) 123-45-67"],["Email","andrey@stroykompas.ru"]].map(([k,v])=>(
             <div key={k} className="flex items-center justify-between py-2" style={{borderBottom:"1px solid var(--row-border)"}}>
               <span className="text-sub text-sm">{k}</span>
               <span className="text-main text-sm">{v}</span>
@@ -1648,7 +1648,7 @@ function ProfileScreen({ section, onOpenSection, city, darkMode, onToggleTheme, 
         <div className="card-bg rounded-[20px] p-4 space-y-2">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">О приложении</div>
           <div className="flex justify-between py-1"><span className="text-sub text-sm">Версия</span><span className="text-main text-sm">1.0.0 (MVP)</span></div>
-          <div className="flex justify-between py-1"><span className="text-sub text-sm">Разработчик</span><span className="text-main text-sm">Strovo Tech</span></div>
+          <div className="flex justify-between py-1"><span className="text-sub text-sm">Разработчик</span><span className="text-main text-sm">Stroykompas Tech</span></div>
           <button className="w-full mt-2 rounded-xl bg-red-500/10 py-2.5 text-sm font-semibold text-red-400">Выйти из аккаунта</button>
         </div>
       </div>
@@ -1950,7 +1950,7 @@ function AddressPickerModal({ city, currentAddress, onSelect, onClose }) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-main text-sm font-semibold">Андрей А.</div>
-                <div className="text-sub text-xs mt-0.5">andrey@strovo.ru . +7 (999) 123-45-67</div>
+                <div className="text-sub text-xs mt-0.5">andrey@stroykompas.ru . +7 (999) 123-45-67</div>
               </div>
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M7 4l6 6-6 6" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>

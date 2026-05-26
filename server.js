@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 
 const PORT = Number(process.env.PORT || 3001);
 const DB_DIR = process.env.DB_DIR || "data";
-const DB_PATH = process.env.DB_PATH || join(DB_DIR, "strovo.sqlite");
+const DB_PATH = process.env.DB_PATH || join(DB_DIR, "stroykompas.sqlite");
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
 if (!existsSync(DB_DIR)) mkdirSync(DB_DIR, { recursive: true });

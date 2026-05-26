@@ -1,6 +1,6 @@
 {
-  "name": "Строво",
-  "short_name": "Строво",
+  "name": "Стройкомпас",
+  "short_name": "Стройкомпас",
   "description": "Агрегатор стройматериалов — стройка без переплат",
   "start_url": "/",
   "display": "standalone",
